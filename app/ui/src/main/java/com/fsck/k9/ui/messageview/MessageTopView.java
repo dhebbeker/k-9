@@ -23,16 +23,15 @@ import android.widget.TextView;
 import com.fsck.k9.Account;
 import com.fsck.k9.Account.ShowPictures;
 import com.fsck.k9.K9;
+import com.fsck.k9.ui.R;
 import com.fsck.k9.helper.Contacts;
 import com.fsck.k9.mail.Address;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mailstore.MessageViewInfo;
-import com.fsck.k9.ui.R;
 import com.fsck.k9.ui.messageview.MessageContainerView.OnRenderingFinishedListener;
 import com.fsck.k9.view.MessageHeader;
 import com.fsck.k9.view.ThemeUtils;
 import com.fsck.k9.view.ToolableViewAnimator;
-
 import org.openintents.openpgp.OpenPgpError;
 
 

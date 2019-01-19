@@ -1,6 +1,9 @@
 package com.fsck.k9.ui.messageview;
 
 
+import java.util.HashMap;
+import java.util.Map;
+
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -24,21 +27,18 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.fsck.k9.K9;
+import com.fsck.k9.ui.R;
 import com.fsck.k9.helper.ClipboardManager;
 import com.fsck.k9.helper.Contacts;
+import com.fsck.k9.message.html.HtmlConverter;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.Address;
 import com.fsck.k9.mailstore.AttachmentResolver;
 import com.fsck.k9.mailstore.AttachmentViewInfo;
 import com.fsck.k9.mailstore.MessageViewInfo;
-import com.fsck.k9.message.html.HtmlConverter;
-import com.fsck.k9.ui.R;
 import com.fsck.k9.view.MessageHeader.OnLayoutChangedListener;
 import com.fsck.k9.view.MessageWebView;
 import com.fsck.k9.view.MessageWebView.OnPageFinishedListener;
-
-import java.util.HashMap;
-import java.util.Map;
 
 import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
 
