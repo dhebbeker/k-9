@@ -8,6 +8,7 @@ import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -109,6 +110,9 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
         unsignedText = findViewById(R.id.message_unsigned_text);
 
         plainText = (TextView) findViewById(R.id.message_plain_text);
+        plainText.setTextSize(mMessageContentView.getSettings().getDefaultFontSize());
+        plainText.setTypeface(
+                Typeface.create(mMessageContentView.getSettings().getStandardFontFamily(), Typeface.NORMAL));
         showingPictures = false;
 
         Context context = getContext();
