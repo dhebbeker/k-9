@@ -976,11 +976,11 @@ public class MessageList extends K9Activity implements MessageListFragmentListen
             messageViewFragment.onToggleAllHeadersView();
             updateMenu();
             return true;
-        } else if(id == R.id.set_format_plain){
+        } else if (id == R.id.set_format_plain) {
             messageViewFragment.renderMessageBody(true);
             updateMenu();
             return true;
-        } else if(id == R.id.set_format_html){
+        } else if (id == R.id.set_format_html) {
             messageViewFragment.renderMessageBody(false);
             updateMenu();
             return true;
@@ -1148,7 +1148,7 @@ public class MessageList extends K9Activity implements MessageListFragmentListen
                 menu.findItem(R.id.hide_headers).setVisible(false);
             }
 
-            if (messageViewFragment.isPlainTextRendered()){
+            if (messageViewFragment.isPlainTextRendered()) {
                 menu.findItem(R.id.set_format_plain).setVisible(false);
             } else {
                 menu.findItem(R.id.set_format_html).setVisible(false);

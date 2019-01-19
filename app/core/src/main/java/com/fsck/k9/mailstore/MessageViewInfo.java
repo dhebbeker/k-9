@@ -45,18 +45,22 @@ public class MessageViewInfo {
     }
 
     static MessageViewInfo createWithExtractedContent(Message message, Part rootPart, boolean isMessageIncomplete,
-            String text, String plainText, List<AttachmentViewInfo> attachments, AttachmentResolver attachmentResolver) {
+            String text, String plainText, List<AttachmentViewInfo> attachments,
+            AttachmentResolver attachmentResolver) {
         return new MessageViewInfo(
-                message, isMessageIncomplete, rootPart, null, false, text, plainText, attachments, null, attachmentResolver, null,
+                message, isMessageIncomplete, rootPart, null, false, text, plainText, attachments, null,
+                attachmentResolver, null,
                 Collections.<AttachmentViewInfo>emptyList());
     }
 
     public static MessageViewInfo createWithErrorState(Message message, boolean isMessageIncomplete) {
-        return new MessageViewInfo(message, isMessageIncomplete, null, null, false, null, null, null, null, null, null, null);
+        return new MessageViewInfo(message, isMessageIncomplete, null, null, false, null, null, null, null, null, null,
+                null);
     }
 
     public static MessageViewInfo createForMetadataOnly(Message message, boolean isMessageIncomplete) {
-        return new MessageViewInfo(message, isMessageIncomplete, null, null, false, null, null, null, null, null, null, null);
+        return new MessageViewInfo(message, isMessageIncomplete, null, null, false, null, null, null, null, null, null,
+                null);
     }
 
     MessageViewInfo withCryptoData(CryptoResultAnnotation rootPartAnnotation, String extraViewableText,

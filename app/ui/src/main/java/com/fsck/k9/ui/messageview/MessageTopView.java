@@ -134,9 +134,8 @@ public class MessageTopView extends LinearLayout {
         }
     }
 
-    public void renderMessageBody(final boolean renderInPlainTextFormat)
-    {
-        ((MessageContainerView)containerView.getChildAt(0)).renderMessageBody(renderInPlainTextFormat);
+    public void renderMessageBody(final boolean renderInPlainTextFormat) {
+        ((MessageContainerView) containerView.getChildAt(0)).renderMessageBody(renderInPlainTextFormat);
     }
 
     public boolean isPlainTextRendered() {

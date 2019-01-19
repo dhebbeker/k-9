@@ -305,8 +305,7 @@ public class MessageViewFragment extends Fragment implements ConfirmationDialogF
         mMessageView.renderMessageBody(renderInPlainTextFormat);
     }
 
-    public boolean isPlainTextRendered()
-    {
+    public boolean isPlainTextRendered() {
         return mMessageView.isPlainTextRendered();
     }
 
