@@ -301,6 +301,16 @@ public class MessageViewFragment extends Fragment implements ConfirmationDialogF
         mMessageView.getMessageHeaderView().onShowAdditionalHeaders();
     }
 
+    public void renderMessageBody(final boolean renderInPlainTextFormat) {
+        mMessageView.renderMessageBody(renderInPlainTextFormat);
+    }
+
+    public boolean isPlainTextRendered()
+    {
+        return mMessageView.isPlainTextRendered();
+    }
+
+
     public boolean allHeadersVisible() {
         return mMessageView.getMessageHeaderView().additionalHeadersVisible();
     }

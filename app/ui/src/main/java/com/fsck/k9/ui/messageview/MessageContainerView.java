@@ -1,9 +1,6 @@
 package com.fsck.k9.ui.messageview;
 
 
-import java.util.HashMap;
-import java.util.Map;
-
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -27,18 +24,21 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.fsck.k9.K9;
-import com.fsck.k9.ui.R;
 import com.fsck.k9.helper.ClipboardManager;
 import com.fsck.k9.helper.Contacts;
-import com.fsck.k9.message.html.HtmlConverter;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.Address;
 import com.fsck.k9.mailstore.AttachmentResolver;
 import com.fsck.k9.mailstore.AttachmentViewInfo;
 import com.fsck.k9.mailstore.MessageViewInfo;
+import com.fsck.k9.message.html.HtmlConverter;
+import com.fsck.k9.ui.R;
 import com.fsck.k9.view.MessageHeader.OnLayoutChangedListener;
 import com.fsck.k9.view.MessageWebView;
 import com.fsck.k9.view.MessageWebView.OnPageFinishedListener;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
 
@@ -78,6 +78,16 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
 
     private String currentHtmlText;
     private AttachmentResolver currentAttachmentResolver;
+    private MessageViewInfo messageViewInfo = null;
+    private boolean loadPictures = false;
+    private boolean hideUnsignedTextDivider = false;
+    private OnRenderingFinishedListener onRenderingFinishedListener = null;
+
+    public boolean isPlainTextRendered() {
+        return plainTextRendered;
+    }
+
+    private boolean plainTextRendered;
 
 
     @Override
@@ -390,9 +400,18 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
 
         renderAttachments(messageViewInfo);
 
+        this.messageViewInfo = messageViewInfo;
+        this.loadPictures = loadPictures;
+        this.hideUnsignedTextDivider = hideUnsignedTextDivider;
+        this.onRenderingFinishedListener = onRenderingFinishedListener;
+
+        renderMessageBody(K9.displayAsPlainText());
+    }
+
+    public void renderMessageBody(final boolean renderInPlainTextFormat)
+    {
         String textToDisplay;
-        boolean isPlainText = K9.displayAsPlainText();
-        if(!isPlainText)
+        if(!renderInPlainTextFormat)
             textToDisplay = messageViewInfo.text;
         else
             textToDisplay = "";
@@ -421,8 +440,13 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
         displayHtmlContentWithInlineAttachments(
                 textToDisplay, messageViewInfo.attachmentResolver, onPageFinishedListener);
 
-        if(isPlainText) {
+        if(renderInPlainTextFormat) {
             plainText.setText(messageViewInfo.plainText);
+            plainText.setVisibility(View.VISIBLE);
+            mMessageContentView.setVisibility(View.GONE);
+        } else {
+            plainText.setVisibility(View.GONE);
+            mMessageContentView.setVisibility(View.VISIBLE);
         }
 
         if (!TextUtils.isEmpty(messageViewInfo.extraText)) {
@@ -430,6 +454,7 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
             unsignedTextDivider.setVisibility(hideUnsignedTextDivider ? View.GONE : View.VISIBLE);
             unsignedText.setText(messageViewInfo.extraText);
         }
+        plainTextRendered = renderInPlainTextFormat;
     }
 
     public boolean hasHiddenExternalImages() {
