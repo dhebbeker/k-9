@@ -1,9 +1,6 @@
 package com.fsck.k9.mail.transport.smtp;
 
 
-import java.io.IOException;
-import java.net.InetAddress;
-
 import com.fsck.k9.mail.AuthType;
 import com.fsck.k9.mail.AuthenticationFailedException;
 import com.fsck.k9.mail.CertificateValidationException;
@@ -12,7 +9,6 @@ import com.fsck.k9.mail.K9LibRobolectricTestRunner;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mail.MessagingException;
 import com.fsck.k9.mail.ServerSettings;
-import com.fsck.k9.mail.ServerSettings.Type;
 import com.fsck.k9.mail.XOAuth2ChallengeParserTest;
 import com.fsck.k9.mail.filter.Base64;
 import com.fsck.k9.mail.helpers.TestMessageBuilder;
@@ -20,7 +16,6 @@ import com.fsck.k9.mail.helpers.TestTrustedSocketFactory;
 import com.fsck.k9.mail.internet.MimeMessage;
 import com.fsck.k9.mail.oauth.OAuth2TokenProvider;
 import com.fsck.k9.mail.ssl.TrustedSocketFactory;
-import com.fsck.k9.mail.store.StoreConfig;
 import com.fsck.k9.mail.transport.mockServer.MockSmtpServer;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,7 +42,6 @@ public class SmtpTransportTest {
     
     private TrustedSocketFactory socketFactory;
     private OAuth2TokenProvider oAuth2TokenProvider;
-    private StoreConfig storeConfig = mock(StoreConfig.class);
 
 
     @Before
@@ -59,77 +53,14 @@ public class SmtpTransportTest {
     }
 
     @Test
-    public void SmtpTransport_withValidTransportUri() throws Exception {
-        StoreConfig storeConfig = setupStoreConfigWithTransportUri("smtp://user:password:CRAM_MD5@server:123456");
-
-        new SmtpTransport(storeConfig, socketFactory, oAuth2TokenProvider);
-    }
-
-    @Test(expected = MessagingException.class)
-    public void SmtpTransport_withInvalidTransportUri_shouldThrow() throws Exception {
-        StoreConfig storeConfig = setupStoreConfigWithTransportUri("smpt://");
-
-        new SmtpTransport(storeConfig, socketFactory, oAuth2TokenProvider);
-    }
-
-    @Test
-    public void open_withShouldHideHostnameTrue_shouldProvideLocalhost() throws Exception {
-        MockSmtpServer server = new MockSmtpServer();
-        server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
-        server.output("250-localhost Hello client.localhost");
-        server.output("250 OK");
-        when(storeConfig.shouldHideHostname()).thenReturn(true);
-        SmtpTransport transport = startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE, null,
-                "private.host.org", "127.0.0.1");
-
-        transport.open();
-
-        server.verifyConnectionStillOpen();
-        server.verifyInteractionCompleted();
-    }
-
-    @Test
-    public void open_withShouldHideHostnameFalse_shouldProvideHostname() throws Exception {
-        MockSmtpServer server = new MockSmtpServer();
-        server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO visible.host.org");
-        server.output("250-localhost Hello client.localhost");
-        server.output("250 OK");
-        SmtpTransport transport = startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE, null,
-                "visible.host.org", "127.0.0.1");
-
-        transport.open();
-
-        server.verifyConnectionStillOpen();
-        server.verifyInteractionCompleted();
-    }
-
-    @Test
-    public void open_withEmptyHostname_shouldProvideIPAddress() throws Exception {
+    public void open__shouldProvideHostname() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
         server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 OK");
-        SmtpTransport transport = startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE, null,
-                "", "127.0.0.1");
-
-        transport.open();
-
-        server.verifyConnectionStillOpen();
-        server.verifyInteractionCompleted();
-    }
-
-    @Test
-    public void open_withEmptyHostnameAndIP_shouldProvideSensibleDefault() throws Exception {
-        MockSmtpServer server = new MockSmtpServer();
-        server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO android");
-        server.output("250-localhost Hello client.localhost");
-        server.output("250 OK");
-        SmtpTransport transport = startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE, null,
-                "", "");
+        SmtpTransport transport = startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE,
+                null);
 
         transport.open();
 
@@ -141,7 +72,7 @@ public class SmtpTransportTest {
     public void open_withoutAuthLoginExtension_shouldConnectWithoutAuthentication() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 OK");
         SmtpTransport transport = startServerAndCreateSmtpTransportWithoutPassword(server);
@@ -156,7 +87,7 @@ public class SmtpTransportTest {
     public void open_withAuthPlainExtension() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH PLAIN LOGIN");
         server.expect("AUTH PLAIN AHVzZXIAcGFzc3dvcmQ=");
@@ -173,7 +104,7 @@ public class SmtpTransportTest {
     public void open_withAuthLoginExtension() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH LOGIN");
         server.expect("AUTH LOGIN");
@@ -194,7 +125,7 @@ public class SmtpTransportTest {
     public void open_withoutLoginAndPlainAuthExtensions_shouldThrow() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH");
         server.expect("QUIT");
@@ -216,7 +147,7 @@ public class SmtpTransportTest {
     public void open_withCramMd5AuthExtension() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH CRAM-MD5");
         server.expect("AUTH CRAM-MD5");
@@ -235,7 +166,7 @@ public class SmtpTransportTest {
     public void open_withoutCramMd5AuthExtension_shouldThrow() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH PLAIN LOGIN");
         server.expect("QUIT");
@@ -257,7 +188,7 @@ public class SmtpTransportTest {
     public void open_withXoauth2Extension() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH XOAUTH2");
         server.expect("AUTH XOAUTH2 dXNlcj11c2VyAWF1dGg9QmVhcmVyIG9sZFRva2VuAQE=");
@@ -274,7 +205,7 @@ public class SmtpTransportTest {
     public void open_withXoauth2Extension_shouldThrowOn401Response() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH XOAUTH2");
         server.expect("AUTH XOAUTH2 dXNlcj11c2VyAWF1dGg9QmVhcmVyIG9sZFRva2VuAQE=");
@@ -307,7 +238,7 @@ public class SmtpTransportTest {
     public void open_withXoauth2Extension_shouldInvalidateAndRetryOn400Response() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH XOAUTH2");
         server.expect("AUTH XOAUTH2 dXNlcj11c2VyAWF1dGg9QmVhcmVyIG9sZFRva2VuAQE=");
@@ -333,7 +264,7 @@ public class SmtpTransportTest {
     public void open_withXoauth2Extension_shouldInvalidateAndRetryOnInvalidJsonResponse() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH XOAUTH2");
         server.expect("AUTH XOAUTH2 dXNlcj11c2VyAWF1dGg9QmVhcmVyIG9sZFRva2VuAQE=");
@@ -359,7 +290,7 @@ public class SmtpTransportTest {
     public void open_withXoauth2Extension_shouldInvalidateAndRetryOnMissingStatusJsonResponse() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH XOAUTH2");
         server.expect("AUTH XOAUTH2 dXNlcj11c2VyAWF1dGg9QmVhcmVyIG9sZFRva2VuAQE=");
@@ -385,7 +316,7 @@ public class SmtpTransportTest {
     public void open_withXoauth2Extension_shouldThrowOnMultipleFailure() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH XOAUTH2");
         server.expect("AUTH XOAUTH2 dXNlcj11c2VyAWF1dGg9QmVhcmVyIG9sZFRva2VuAQE=");
@@ -421,7 +352,7 @@ public class SmtpTransportTest {
     public void open_withXoauth2Extension_shouldThrowOnFailure_fetchingToken() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH XOAUTH2");
         server.expect("QUIT");
@@ -445,7 +376,7 @@ public class SmtpTransportTest {
     public void open_withoutXoauth2Extension_shouldThrow() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH PLAIN LOGIN");
         server.expect("QUIT");
@@ -467,7 +398,7 @@ public class SmtpTransportTest {
     public void open_withAuthExternalExtension() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH EXTERNAL");
         server.expect("AUTH EXTERNAL dXNlcg==");
@@ -484,7 +415,7 @@ public class SmtpTransportTest {
     public void open_withoutAuthExternalExtension_shouldThrow() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH");
         server.expect("QUIT");
@@ -507,7 +438,7 @@ public class SmtpTransportTest {
             throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH CRAM-MD5");
         server.expect("AUTH CRAM-MD5");
@@ -527,7 +458,7 @@ public class SmtpTransportTest {
     public void open_withAutomaticAuthAndNoTransportSecurityAndAuthPlainExtension_shouldThrow() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250 AUTH PLAIN LOGIN");
         server.expect("QUIT");
@@ -551,9 +482,9 @@ public class SmtpTransportTest {
     public void open_withEhloFailing_shouldTryHelo() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("502 5.5.1, Unrecognized command.");
-        server.expect("HELO localhost");
+        server.expect("HELO [127.0.0.1]");
         server.output("250 localhost");
         SmtpTransport transport = startServerAndCreateSmtpTransportWithoutPassword(server);
 
@@ -568,7 +499,7 @@ public class SmtpTransportTest {
             throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         server.output("250-ENHANCEDSTATUSCODES");
         server.output("250 AUTH XOAUTH2");
@@ -602,7 +533,7 @@ public class SmtpTransportTest {
     public void open_withManyExtensions_shouldParseAll() throws Exception {
         MockSmtpServer server = new MockSmtpServer();
         server.output("220 smtp.gmail.com ESMTP x25sm19117693wrx.27 - gsmtp");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-smtp.gmail.com at your service, [86.147.34.216]");
         server.output("250-SIZE 35882577");
         server.output("250-8BITMIME");
@@ -852,8 +783,8 @@ public class SmtpTransportTest {
             transport.sendMessage(message);
             fail("Expected exception");
         } catch (NegativeSmtpReplyException e) {
-            assertEquals(554, e.getReplyCode());
-            assertEquals("no valid recipients given", e.getReplyText());
+            assertEquals(550, e.getReplyCode());
+            assertEquals("remote mail to <user2@localhost> not allowed", e.getReplyText());
         }
 
         server.verifyConnectionClosed();
@@ -861,7 +792,7 @@ public class SmtpTransportTest {
     }
 
     @Test
-    public void sendMessagePipelining_with250and550ReplyforRecipients_shouldThrow() throws Exception {
+    public void sendMessagePipelining_with250and550ReplyforRecipients_shouldThrowFirst() throws Exception {
         Message message = getMessageWithTwoRecipients();
         MockSmtpServer server = createServerAndSetupForPlainAuthentication("PIPELINING");
         server.expect("MAIL FROM:<user@localhost>");
@@ -869,7 +800,7 @@ public class SmtpTransportTest {
         server.expect("RCPT TO:<user3@localhost>");
         server.expect("DATA");
         server.output("250 OK");
-        server.output("250 OK");
+        server.output("550 remote mail to <user2@localhost> not allowed");
         server.output("550 remote mail to <user3@localhost> not allowed");
         server.output("354 End data with <CR><LF>.<CR><LF>");
         server.expect(".");
@@ -884,7 +815,7 @@ public class SmtpTransportTest {
             fail("Expected exception");
         } catch (NegativeSmtpReplyException e) {
             assertEquals(550, e.getReplyCode());
-            assertEquals("remote mail to <user3@localhost> not allowed", e.getReplyText());
+            assertEquals("remote mail to <user2@localhost> not allowed", e.getReplyText());
         }
 
         server.verifyConnectionClosed();
@@ -923,32 +854,28 @@ public class SmtpTransportTest {
     }
 
 
-    private SmtpTransport startServerAndCreateSmtpTransport(MockSmtpServer server) throws IOException,
-            MessagingException {
+    private SmtpTransport startServerAndCreateSmtpTransport(MockSmtpServer server) throws Exception {
         return startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE);
     }
 
-    private SmtpTransport startServerAndCreateSmtpTransportWithoutPassword(MockSmtpServer server) throws IOException,
-            MessagingException {
-        return startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE, null,
-                "localhost", "127.0.0.1");
+    private SmtpTransport startServerAndCreateSmtpTransportWithoutPassword(MockSmtpServer server) throws Exception {
+        return startServerAndCreateSmtpTransport(server, AuthType.PLAIN, ConnectionSecurity.NONE, null);
     }
 
     private SmtpTransport startServerAndCreateSmtpTransport(MockSmtpServer server, AuthType authenticationType,
-            ConnectionSecurity connectionSecurity) throws IOException, MessagingException {
-        return startServerAndCreateSmtpTransport(server, authenticationType, connectionSecurity, PASSWORD,
-                "localhost", "127.0.0.1");
+            ConnectionSecurity connectionSecurity) throws Exception {
+        return startServerAndCreateSmtpTransport(server, authenticationType, connectionSecurity, PASSWORD);
     }
 
     private SmtpTransport startServerAndCreateSmtpTransport(MockSmtpServer server, AuthType authenticationType,
-            ConnectionSecurity connectionSecurity, String password,
-            String injectedHostname, String injectedIP) throws IOException, MessagingException {
+            ConnectionSecurity connectionSecurity, String password)
+            throws Exception {
         server.start();
 
         String host = server.getHost();
         int port = server.getPort();
         ServerSettings serverSettings = new ServerSettings(
-                Type.SMTP,
+                "smtp",
                 host,
                 port,
                 connectionSecurity,
@@ -956,15 +883,8 @@ public class SmtpTransportTest {
                 USERNAME,
                 password,
                 CLIENT_CERTIFICATE_ALIAS);
-        String uri = SmtpTransportUriCreator.createSmtpUri(serverSettings);
-        StoreConfig storeConfig = setupStoreConfigWithTransportUri(uri);
 
-        return new TestSmtpTransport(storeConfig, socketFactory, oAuth2TokenProvider, injectedHostname, injectedIP);
-    }
-
-    private StoreConfig setupStoreConfigWithTransportUri(String value) {
-        when(storeConfig.getTransportUri()).thenReturn(value);
-        return storeConfig;
+        return new SmtpTransport(serverSettings, socketFactory, oAuth2TokenProvider);
     }
 
     private TestMessageBuilder getDefaultMessageBuilder() {
@@ -988,7 +908,7 @@ public class SmtpTransportTest {
         MockSmtpServer server = new MockSmtpServer();
         
         server.output("220 localhost Simple Mail Transfer Service Ready");
-        server.expect("EHLO localhost");
+        server.expect("EHLO [127.0.0.1]");
         server.output("250-localhost Hello client.localhost");
         
         for (String extension : extensions) {
@@ -1000,30 +920,5 @@ public class SmtpTransportTest {
         server.output("235 2.7.0 Authentication successful");
         
         return server;
-    }
-    
-    
-    static class TestSmtpTransport extends SmtpTransport {
-        private final String injectedHostname;
-        private final String injectedIP;
-
-        TestSmtpTransport(StoreConfig storeConfig, TrustedSocketFactory trustedSocketFactory,
-                OAuth2TokenProvider oAuth2TokenProvider,
-                String injectedHostname, String injectedIP)
-                throws MessagingException {
-            super(storeConfig, trustedSocketFactory, oAuth2TokenProvider);
-            this.injectedHostname = injectedHostname;
-            this.injectedIP = injectedIP;
-        }
-
-        @Override
-        protected String getCanonicalHostName(InetAddress localAddress) {
-            return injectedHostname;
-        }
-
-        @Override
-        protected String getHostAddress(InetAddress localAddress) {
-            return injectedIP;
-        }
     }
 }

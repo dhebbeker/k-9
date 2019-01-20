@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.fsck.k9.mail.AuthenticationFailedException;
+import com.fsck.k9.mail.CertificateValidationException;
 import com.fsck.k9.mail.Flag;
 import com.fsck.k9.mail.K9MailLib;
 import com.fsck.k9.mail.Message;
@@ -37,7 +38,7 @@ class ImapFolderPusher extends ImapFolder {
     private final Object threadLock = new Object();
     private final IdleStopper idleStopper = new IdleStopper();
     private final WakeLock wakeLock;
-    private final List<ImapResponse> storedUntaggedResponses = new ArrayList<ImapResponse>();
+    private final List<ImapResponse> storedUntaggedResponses = new ArrayList<>();
     private Thread listeningThread;
     private volatile boolean stop = false;
     private volatile boolean idling = false;
@@ -194,6 +195,12 @@ class ImapFolderPusher extends ImapFolder {
 
                     pushReceiver.authenticationFailed();
                     stop = true;
+                } catch (CertificateValidationException e) {
+                    reacquireWakeLockAndCleanUp();
+
+                    Timber.e(e, "Certificate check failed. Stopping ImapFolderPusher.");
+                    stop = true;
+                    pushReceiver.pushError("Push error for " + getServerId(), e);
                 } catch (Exception e) {
                     reacquireWakeLockAndCleanUp();
 
@@ -424,7 +431,7 @@ class ImapFolderPusher extends ImapFolder {
                     return Collections.emptyList();
                 }
 
-                List<ImapResponse> untaggedResponses = new ArrayList<ImapResponse>(storedUntaggedResponses);
+                List<ImapResponse> untaggedResponses = new ArrayList<>(storedUntaggedResponses);
                 storedUntaggedResponses.clear();
 
                 return untaggedResponses;
@@ -439,8 +446,8 @@ class ImapFolderPusher extends ImapFolder {
                 skipSync = true;
             }
 
-            List<Long> flagSyncMsgSeqs = new ArrayList<Long>();
-            List<String> removeMsgUids = new LinkedList<String>();
+            List<Long> flagSyncMsgSeqs = new ArrayList<>();
+            List<String> removeMsgUids = new LinkedList<>();
 
             for (ImapResponse response : responses) {
                 oldMessageCount += processUntaggedResponse(oldMessageCount, response, flagSyncMsgSeqs, removeMsgUids);
@@ -501,7 +508,7 @@ class ImapFolderPusher extends ImapFolder {
                             Timber.d("Got untagged EXPUNGE for msgseq %d for %s", msgSeq, getLogId());
                         }
 
-                        List<Long> newSeqs = new ArrayList<Long>();
+                        List<Long> newSeqs = new ArrayList<>();
                         Iterator<Long> flagIter = flagSyncMsgSeqs.iterator();
                         while (flagIter.hasNext()) {
                             long flagMsg = flagIter.next();
@@ -515,7 +522,7 @@ class ImapFolderPusher extends ImapFolder {
 
                         flagSyncMsgSeqs.addAll(newSeqs);
 
-                        List<Long> msgSeqs = new ArrayList<Long>(msgSeqUidMap.keySet());
+                        List<Long> msgSeqs = new ArrayList<>(msgSeqUidMap.keySet());
                         Collections.sort(msgSeqs);  // Have to do comparisons in order because of msgSeq reductions
 
                         for (long msgSeqNum : msgSeqs) {
@@ -578,7 +585,7 @@ class ImapFolderPusher extends ImapFolder {
                         Timber.i("Needs sync from uid %d to %d for %s", startUid, newUid, getLogId());
                     }
 
-                    List<Message> messages = new ArrayList<Message>();
+                    List<Message> messages = new ArrayList<>();
                     for (long uid = startUid; uid <= newUid; uid++) {
                         ImapMessage message = new ImapMessage(Long.toString(uid), ImapFolderPusher.this);
                         messages.add(message);
@@ -596,8 +603,7 @@ class ImapFolderPusher extends ImapFolder {
                 Set<Long> messageSeqSet = new HashSet<>(flagSyncMsgSeqs);
                 List<? extends Message> messageList = getMessages(messageSeqSet, true, null);
 
-                List<Message> messages = new ArrayList<Message>();
-                messages.addAll(messageList);
+                List<Message> messages = new ArrayList<>(messageList);
                 pushReceiver.messagesFlagsChanged(ImapFolderPusher.this, messages);
             } catch (Exception e) {
                 pushReceiver.pushError("Exception while processing Push untagged responses", e);
@@ -605,7 +611,7 @@ class ImapFolderPusher extends ImapFolder {
         }
 
         private void removeMessages(List<String> removeUids) {
-            List<Message> messages = new ArrayList<Message>(removeUids.size());
+            List<Message> messages = new ArrayList<>(removeUids.size());
 
             try {
                 List<ImapMessage> existingMessages = getMessagesFromUids(removeUids);
@@ -653,7 +659,7 @@ class ImapFolderPusher extends ImapFolder {
             }
 
             int count = (int) (uidNext - startUid);
-            List<Message> messages = new ArrayList<Message>(count);
+            List<Message> messages = new ArrayList<>(count);
 
             for (long uid = startUid; uid < uidNext; uid++) {
                 ImapMessage message = new ImapMessage(Long.toString(uid), ImapFolderPusher.this);

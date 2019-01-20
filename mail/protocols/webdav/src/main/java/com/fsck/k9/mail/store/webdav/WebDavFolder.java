@@ -117,7 +117,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
             uids[i] = messages.get(i).getUid();
         }
         String messageBody;
-        Map<String, String> headers = new HashMap<String, String>();
+        Map<String, String> headers = new HashMap<>();
         Map<String, String> uidToUrl = getMessageUrls(uids);
         String[] urls = new String[uids.length];
 
@@ -143,7 +143,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
     private int getMessageCount(boolean read) throws MessagingException {
         String isRead;
         int messageCount = 0;
-        Map<String, String> headers = new HashMap<String, String>();
+        Map<String, String> headers = new HashMap<>();
         String messageBody;
 
         if (read) {
@@ -217,13 +217,8 @@ public class WebDavFolder extends Folder<WebDavMessage> {
     }
 
     @Override
-    public boolean create(FolderType type) throws MessagingException {
+    public boolean create() throws MessagingException {
         return true;
-    }
-
-    @Override
-    public void delete(boolean recursive) throws MessagingException {
-        throw new Error("WebDavFolder.delete() not implemeneted");
     }
 
     @Override
@@ -234,9 +229,9 @@ public class WebDavFolder extends Folder<WebDavMessage> {
     @Override
     public List<WebDavMessage> getMessages(int start, int end, Date earliestDate, MessageRetrievalListener<WebDavMessage> listener)
             throws MessagingException {
-        List<WebDavMessage> messages = new ArrayList<WebDavMessage>();
+        List<WebDavMessage> messages = new ArrayList<>();
         String[] uids;
-        Map<String, String> headers = new HashMap<String, String>();
+        Map<String, String> headers = new HashMap<>();
         int uidsLength;
 
         String messageBody;
@@ -286,7 +281,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
     }
 
     private Map<String, String> getMessageUrls(String[] uids) throws MessagingException {
-        Map<String, String> headers = new HashMap<String, String>();
+        Map<String, String> headers = new HashMap<>();
         String messageBody;
 
         /** Retrieve and parse the XML entity for our messages */
@@ -449,9 +444,9 @@ public class WebDavFolder extends Folder<WebDavMessage> {
      * we do a series of medium calls instead of one large massive call or a large number of smaller calls.
      */
     private void fetchFlags(List<WebDavMessage> startMessages, MessageRetrievalListener<WebDavMessage> listener) throws MessagingException {
-        HashMap<String, String> headers = new HashMap<String, String>();
+        HashMap<String, String> headers = new HashMap<>();
         String messageBody;
-        List<Message> messages = new ArrayList<Message>(20);
+        List<Message> messages = new ArrayList<>(20);
         String[] uids;
 
         if (startMessages == null ||
@@ -460,7 +455,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
         }
 
         if (startMessages.size() > 20) {
-            List<WebDavMessage> newMessages = new ArrayList<WebDavMessage>(startMessages.size() - 20);
+            List<WebDavMessage> newMessages = new ArrayList<>(startMessages.size() - 20);
             for (int i = 0, count = startMessages.size(); i < count; i++) {
                 if (i < 20) {
                     messages.add(startMessages.get(i));
@@ -513,10 +508,10 @@ public class WebDavFolder extends Folder<WebDavMessage> {
      */
     private void fetchEnvelope(List<WebDavMessage> startMessages, MessageRetrievalListener<WebDavMessage> listener)
             throws MessagingException {
-        Map<String, String> headers = new HashMap<String, String>();
+        Map<String, String> headers = new HashMap<>();
         String messageBody;
         String[] uids;
-        List<WebDavMessage> messages = new ArrayList<WebDavMessage>(10);
+        List<WebDavMessage> messages = new ArrayList<>(10);
 
         if (startMessages == null ||
                 startMessages.isEmpty()) {
@@ -524,7 +519,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
         }
 
         if (startMessages.size() > 10) {
-            List<WebDavMessage> newMessages = new ArrayList<WebDavMessage>(startMessages.size() - 10);
+            List<WebDavMessage> newMessages = new ArrayList<>(startMessages.size() - 10);
             for (int i = 0, count = startMessages.size(); i < count; i++) {
                 if (i < 10) {
                     messages.add(i, startMessages.get(i));
@@ -591,7 +586,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
 
     private void markServerMessagesRead(String[] uids, boolean read) throws MessagingException {
         String messageBody;
-        Map<String, String> headers = new HashMap<String, String>();
+        Map<String, String> headers = new HashMap<>();
         Map<String, String> uidToUrl = getMessageUrls(uids);
         String[] urls = new String[uids.length];
 
@@ -610,7 +605,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
         Map<String, String> uidToUrl = getMessageUrls(uids);
 
         for (String uid : uids) {
-            Map<String, String> headers = new HashMap<String, String>();
+            Map<String, String> headers = new HashMap<>();
             String url = uidToUrl.get(uid);
             String destinationUrl = generateDeleteUrl(url);
 
@@ -642,7 +637,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
     }
 
     public List<? extends Message> appendWebDavMessages(List<? extends Message> messages) throws MessagingException {
-        List<Message> retMessages = new ArrayList<Message>(messages.size());
+        List<Message> retMessages = new ArrayList<>(messages.size());
 
         WebDavHttpClient httpclient = store.getHttpClient();
 

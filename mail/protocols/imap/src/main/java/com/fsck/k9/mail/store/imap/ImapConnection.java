@@ -86,7 +86,7 @@ class ImapConnection {
     private OutputStream outputStream;
     private ImapResponseParser responseParser;
     private int nextCommandTag;
-    private Set<String> capabilities = new HashSet<String>();
+    private Set<String> capabilities = new HashSet<>();
     private ImapSettings settings;
     private Exception stacktraceForClose;
     private boolean open = false;
@@ -408,7 +408,7 @@ class ImapConnection {
 
     private AuthenticationFailedException handlePermanentXoauth2Failure(NegativeImapResponseException e) {
         Timber.v(e, "Permanent failure during XOAUTH2");
-        return new AuthenticationFailedException(e.getMessage(), e);
+        return new AuthenticationFailedException(e.getMessage(), e, e.getAlertText());
     }
 
     private List<ImapResponse> handleTemporaryXoauth2Failure(NegativeImapResponseException e) throws IOException, MessagingException {
@@ -694,11 +694,15 @@ class ImapConnection {
         return isListResponse && hierarchyDelimiterValid;
     }
 
-    protected boolean hasCapability(String capability) {
+    protected boolean hasCapability(String capability) throws IOException, MessagingException {
+        if (!open) {
+            open();
+        }
+
         return capabilities.contains(capability.toUpperCase(Locale.US));
     }
 
-    public boolean isCondstoreCapable()  {
+    public boolean isCondstoreCapable() throws IOException, MessagingException {
         return hasCapability(Capabilities.CONDSTORE);
     }
 
@@ -886,7 +890,7 @@ class ImapConnection {
         return response;
     }
 
-    int getLineLengthLimit() {
+    int getLineLengthLimit() throws IOException, MessagingException {
         return isCondstoreCapable() ? LENGTH_LIMIT_WITH_CONDSTORE : LENGTH_LIMIT_WITHOUT_CONDSTORE;
     }
 }

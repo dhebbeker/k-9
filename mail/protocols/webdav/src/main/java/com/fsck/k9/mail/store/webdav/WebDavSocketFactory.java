@@ -1,11 +1,5 @@
 package com.fsck.k9.mail.store.webdav;
 
-import com.fsck.k9.mail.ssl.DefaultTrustedSocketFactory;
-import org.apache.http.conn.ConnectTimeoutException;
-import org.apache.http.conn.scheme.LayeredSocketFactory;
-import org.apache.http.params.HttpParams;
-
-import com.fsck.k9.mail.ssl.TrustManagerFactory;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -13,10 +7,14 @@ import java.net.Socket;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
+import com.fsck.k9.mail.ssl.DefaultTrustedSocketFactory;
+import com.fsck.k9.mail.ssl.TrustManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
+import org.apache.http.conn.scheme.LayeredSocketFactory;
+import org.apache.http.params.HttpParams;
 
 
 /*
@@ -27,10 +25,10 @@ public class WebDavSocketFactory implements LayeredSocketFactory {
     private SSLSocketFactory mSocketFactory;
     private org.apache.http.conn.ssl.SSLSocketFactory mSchemeSocketFactory;
 
-    public WebDavSocketFactory(String host, int port) throws NoSuchAlgorithmException, KeyManagementException {
+    public WebDavSocketFactory(TrustManagerFactory trustManagerFactory, String host, int port) throws NoSuchAlgorithmException, KeyManagementException {
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, new TrustManager[] {
-                TrustManagerFactory.get(host, port)
+                trustManagerFactory.getTrustManagerForDomain(host, port)
         }, null);
         mSocketFactory = sslContext.getSocketFactory();
         mSchemeSocketFactory = org.apache.http.conn.ssl.SSLSocketFactory.getSocketFactory();

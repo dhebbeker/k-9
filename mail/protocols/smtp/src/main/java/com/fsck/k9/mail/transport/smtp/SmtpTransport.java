@@ -36,7 +36,6 @@ import com.fsck.k9.mail.Message;
 import com.fsck.k9.mail.Message.RecipientType;
 import com.fsck.k9.mail.MessagingException;
 import com.fsck.k9.mail.ServerSettings;
-import com.fsck.k9.mail.ServerSettings.Type;
 import com.fsck.k9.mail.Transport;
 import com.fsck.k9.mail.filter.Base64;
 import com.fsck.k9.mail.filter.EOLConvertingOutputStream;
@@ -47,7 +46,6 @@ import com.fsck.k9.mail.internet.CharsetSupport;
 import com.fsck.k9.mail.oauth.OAuth2TokenProvider;
 import com.fsck.k9.mail.oauth.XOAuth2ChallengeParser;
 import com.fsck.k9.mail.ssl.TrustedSocketFactory;
-import com.fsck.k9.mail.store.StoreConfig;
 import javax.net.ssl.SSLException;
 import org.apache.commons.io.IOUtils;
 import timber.log.Timber;
@@ -80,35 +78,26 @@ public class SmtpTransport extends Transport {
     private int largestAcceptableMessage;
     private boolean retryXoauthWithNewToken;
     private boolean isPipeliningSupported;
-    private boolean shouldHideHostname;
 
 
-    public SmtpTransport(StoreConfig storeConfig, TrustedSocketFactory trustedSocketFactory,
-            OAuth2TokenProvider oauthTokenProvider) throws MessagingException {
-        ServerSettings settings;
-        try {
-            settings = SmtpTransportUriDecoder.decodeSmtpUri(storeConfig.getTransportUri());
-        } catch (IllegalArgumentException e) {
-            throw new MessagingException("Error while decoding transport URI", e);
-        }
-
-        if (settings.type != Type.SMTP) {
+    public SmtpTransport(ServerSettings serverSettings,
+            TrustedSocketFactory trustedSocketFactory, OAuth2TokenProvider oauthTokenProvider) {
+        if (!serverSettings.type.equals("smtp")) {
             throw new IllegalArgumentException("Expected SMTP StoreConfig!");
         }
 
-        host = settings.host;
-        port = settings.port;
+        host = serverSettings.host;
+        port = serverSettings.port;
 
-        connectionSecurity = settings.connectionSecurity;
+        connectionSecurity = serverSettings.connectionSecurity;
 
-        authType = settings.authenticationType;
-        username = settings.username;
-        password = settings.password;
-        clientCertificateAlias = settings.clientCertificateAlias;
+        authType = serverSettings.authenticationType;
+        username = serverSettings.username;
+        password = serverSettings.password;
+        clientCertificateAlias = serverSettings.clientCertificateAlias;
 
         this.trustedSocketFactory = trustedSocketFactory;
         this.oauthTokenProvider = oauthTokenProvider;
-        this.shouldHideHostname = storeConfig.shouldHideHostname();
     }
 
     @Override
@@ -313,28 +302,13 @@ public class SmtpTransport extends Transport {
     }
 
     private String buildHostnameToReport() {
-        if (shouldHideHostname) {
-            return "localhost";
-        }
         InetAddress localAddress = socket.getLocalAddress();
-        String localHostname = getCanonicalHostName(localAddress);
-        String ipAddr = getHostAddress(localAddress);
 
-        if (localHostname.equals("") || localHostname.equals(ipAddr) || localHostname.contains("_")) {
-            // We don't have a FQDN or the hostname contains invalid
-            // characters (see issue 2143), so use IP address.
-            if (!ipAddr.equals("")) {
-                if (localAddress instanceof Inet6Address) {
-                    return "[IPv6:" + ipAddr + "]";
-                } else {
-                    return "[" + ipAddr + "]";
-                }
-            } else {
-                // If the IP address is no good, set a sane default
-                return "android";
-            }
+        // we use local ip statically for privacy reasons, see https://github.com/k9mail/k-9/pull/3798
+        if (localAddress instanceof Inet6Address) {
+            return "[IPv6:::1]";
         } else {
-            return localHostname;
+            return "[127.0.0.1]";
         }
     }
 
@@ -478,10 +452,7 @@ public class SmtpTransport extends Transport {
         } catch (NegativeSmtpReplyException e) {
             throw e;
         } catch (Exception e) {
-            MessagingException me = new MessagingException("Unable to send message", e);
-            me.setPermanentFailure(entireMessageSent);
-
-            throw me;
+            throw new MessagingException("Unable to send message", entireMessageSent, e);
         } finally {
             close();
         }
@@ -662,7 +633,8 @@ public class SmtpTransport extends Transport {
     private void readPipelinedResponse(Queue<String> pipelinedCommands) throws IOException, MessagingException {
         String responseLine;
         List<String> results = new ArrayList<>();
-        NegativeSmtpReplyException negativeRecipient = null;
+        NegativeSmtpReplyException firstNegativeResponse = null;
+        boolean dataCommandOk = true;
         for (String command : pipelinedCommands) {
             results.clear();
             responseLine = readCommandResponseLine(results);
@@ -671,20 +643,22 @@ public class SmtpTransport extends Transport {
 
             } catch (MessagingException exception) {
                 if (command.equals("DATA")) {
-                    throw exception;
+                    dataCommandOk = false;
                 }
-                if (command.startsWith("RCPT")) {
-                    negativeRecipient = (NegativeSmtpReplyException) exception;
+                if (firstNegativeResponse == null) {
+                    firstNegativeResponse = (NegativeSmtpReplyException) exception;
                 }
             }
         }
 
-        if (negativeRecipient != null) {
+        if (firstNegativeResponse != null) {
             try {
-                executeCommand(".");
-                throw negativeRecipient;
+                if (dataCommandOk) {
+                    executeCommand(".");
+                }
+                throw firstNegativeResponse;
             } catch (NegativeSmtpReplyException e) {
-                throw negativeRecipient;
+                throw firstNegativeResponse;
             }
         }
 
@@ -834,13 +808,12 @@ public class SmtpTransport extends Transport {
         executeCommand("AUTH EXTERNAL %s", Base64.encode(username));
     }
 
-    @VisibleForTesting
-    protected String getCanonicalHostName(InetAddress localAddress) {
-        return localAddress.getCanonicalHostName();
-    }
-
-    @VisibleForTesting
-    protected String getHostAddress(InetAddress localAddress) {
-        return localAddress.getHostAddress();
+    public void checkSettings() throws MessagingException {
+        close();
+        try {
+            open();
+        } finally {
+            close();
+        }
     }
 }
