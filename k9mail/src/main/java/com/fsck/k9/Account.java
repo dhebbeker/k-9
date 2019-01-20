@@ -191,7 +191,7 @@ public class Account implements BaseAccount, StoreConfig {
     private SortType sortType;
     private Map<SortType, Boolean> sortAscending = new HashMap<>();
     private ShowPictures showPictures;
-    private DisplayPreference mDisplayPreference;
+    private DisplayPreference displayPreference;
     private boolean isSignatureBeforeQuotedText;
     private Expunge expungePolicy = Expunge.EXPUNGE_IMMEDIATELY;
     private int maxPushFolders;
@@ -297,7 +297,7 @@ public class Account implements BaseAccount, StoreConfig {
         folderTargetMode = FolderMode.NOT_SECOND_CLASS;
         sortType = DEFAULT_SORT_TYPE;
         sortAscending.put(DEFAULT_SORT_TYPE, DEFAULT_SORT_ASCENDING);
-        mDisplayPreference = DisplayPreference.HTML_PREFERRED;
+        displayPreference = DisplayPreference.HTML_PREFERRED;
         showPictures = ShowPictures.NEVER;
         isSignatureBeforeQuotedText = false;
         expungePolicy = Expunge.EXPUNGE_IMMEDIATELY;
@@ -425,7 +425,7 @@ public class Account implements BaseAccount, StoreConfig {
 
         sortAscending.put(sortType, storage.getBoolean(accountUuid + ".sortAscending", false));
 
-        mDisplayPreference = getEnumStringPref(storage, mUuid + ".displayPreferenceEnum", DisplayPreference.HTML_PREFERRED);
+        displayPreference = getEnumStringPref(storage, mUuid + ".displayPreferenceEnum", DisplayPreference.HTML_PREFERRED);
 
         showPictures = getEnumStringPref(storage, accountUuid + ".showPicturesEnum", ShowPictures.NEVER);
 
@@ -1150,11 +1150,11 @@ public class Account implements BaseAccount, StoreConfig {
     }
 
     public synchronized DisplayPreference getDisplayPreference() {
-        return mDisplayPreference;
+        return displayPreference;
     }
 
     public synchronized void setDisplayPreference(DisplayPreference displayPreference) {
-        mDisplayPreference = displayPreference;
+        this.displayPreference = displayPreference;
     }
 
     public synchronized FolderMode getFolderTargetMode() {

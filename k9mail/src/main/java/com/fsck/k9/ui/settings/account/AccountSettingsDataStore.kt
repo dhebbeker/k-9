@@ -75,7 +75,7 @@ class AccountSettingsDataStore(
 
     override fun getInt(key: String?, defValue: Int): Int {
         return when (key) {
-            "display_preference_enum" -> account.mDisplayPreference
+            "display_preference_enum" -> account.displayPreference
             "chip_color" -> account.chipColor
             "led_color" -> account.notificationSetting.ledColor
             else -> defValue
@@ -84,7 +84,7 @@ class AccountSettingsDataStore(
 
     override fun putInt(key: String?, value: Int) {
         when (key) {
-            "display_preference_enum" -> account.mDisplayPreference = value
+            "display_preference_enum" -> account.displayPreference = value
             "chip_color" -> account.chipColor = value
             "led_color" -> account.notificationSetting.ledColor = value
             else -> return

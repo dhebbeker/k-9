@@ -68,7 +68,7 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
     private LayoutInflater mInflater;
     private AttachmentViewCallback attachmentCallback;
     private ClipboardManager mClipboardManager;
-    private Account.DisplayPreference mDisplayPreference;
+    private Account.DisplayPreference displayPreference;
     private boolean mIsHtml;
     private Map<AttachmentViewInfo, AttachmentView> attachmentViewMap = new HashMap<>();
     private Map<Uri, AttachmentViewInfo> attachments = new HashMap<>();
@@ -375,7 +375,7 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
             boolean hideUnsignedTextDivider, AttachmentViewCallback attachmentCallback, Account.DisplayPreference displayPreference) {
 
         this.attachmentCallback = attachmentCallback;
-        this.mDisplayPreference = displayPreference;
+        this.displayPreference = displayPreference;
 
         resetView();
 
