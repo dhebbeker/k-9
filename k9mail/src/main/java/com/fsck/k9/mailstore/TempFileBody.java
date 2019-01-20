@@ -6,7 +6,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 
-import com.fsck.k9.mail.MessagingException;
 import com.fsck.k9.mail.internet.SizeAware;
 
 
@@ -21,7 +20,7 @@ public class TempFileBody extends BinaryAttachmentBody implements SizeAware {
     }
 
     @Override
-    public InputStream getInputStream() throws MessagingException {
+    public InputStream getInputStream() {
         try {
             return new FileInputStream(mFile);
         } catch (FileNotFoundException e) {

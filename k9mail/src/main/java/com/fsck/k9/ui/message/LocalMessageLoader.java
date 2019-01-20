@@ -1,12 +1,12 @@
 package com.fsck.k9.ui.message;
 
 
-import android.content.AsyncTaskLoader;
 import android.content.Context;
-import android.util.Log;
+import android.support.v4.content.AsyncTaskLoader;
+
+import timber.log.Timber;
 
 import com.fsck.k9.Account;
-import com.fsck.k9.K9;
 import com.fsck.k9.activity.MessageReference;
 import com.fsck.k9.controller.MessagingController;
 import com.fsck.k9.mail.MessagingException;
@@ -17,14 +17,16 @@ public class LocalMessageLoader extends AsyncTaskLoader<LocalMessage> {
     private final MessagingController controller;
     private final Account account;
     private final MessageReference messageReference;
+    private final boolean onlyLoadMetadata;
     private LocalMessage message;
 
     public LocalMessageLoader(Context context, MessagingController controller, Account account,
-            MessageReference messageReference) {
+            MessageReference messageReference, boolean onlyLoadMetaData) {
         super(context);
         this.controller = controller;
         this.account = account;
         this.messageReference = messageReference;
+        this.onlyLoadMetadata = onlyLoadMetaData;
     }
 
     @Override
@@ -47,14 +49,26 @@ public class LocalMessageLoader extends AsyncTaskLoader<LocalMessage> {
     @Override
     public LocalMessage loadInBackground() {
         try {
-            return loadMessageFromDatabase();
+            if (onlyLoadMetadata) {
+                return loadMessageMetadataFromDatabase();
+            } else {
+                return loadMessageFromDatabase();
+            }
         } catch (Exception e) {
-            Log.e(K9.LOG_TAG, "Error while loading message from database", e);
+            Timber.e(e, "Error while loading message from database");
             return null;
         }
     }
 
+    private LocalMessage loadMessageMetadataFromDatabase() throws MessagingException {
+        return controller.loadMessageMetadata(account, messageReference.getFolderServerId(), messageReference.getUid());
+    }
+
     private LocalMessage loadMessageFromDatabase() throws MessagingException {
-        return controller.loadMessage(account, messageReference.getFolderName(), messageReference.getUid());
+        return controller.loadMessage(account, messageReference.getFolderServerId(), messageReference.getUid());
+    }
+
+    public boolean isCreatedFor(MessageReference messageReference) {
+        return this.messageReference.equals(messageReference);
     }
 }

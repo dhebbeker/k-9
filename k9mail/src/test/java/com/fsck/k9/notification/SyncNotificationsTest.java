@@ -10,31 +10,29 @@ import android.support.v4.app.NotificationManagerCompat;
 import com.fsck.k9.Account;
 import com.fsck.k9.MockHelper;
 import com.fsck.k9.R;
+import com.fsck.k9.RobolectricTest;
 import com.fsck.k9.mail.Folder;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-@RunWith(RobolectricTestRunner.class)
-@Config(manifest = "src/main/AndroidManifest.xml", sdk = 21)
-public class SyncNotificationsTest {
+public class SyncNotificationsTest extends RobolectricTest {
     private static final int ACCOUNT_NUMBER = 1;
     private static final String ACCOUNT_NAME = "TestAccount";
+    private static final String FOLDER_SERVER_ID = "INBOX";
     private static final String FOLDER_NAME = "Inbox";
 
 
+    private Notification notification;
     private NotificationManagerCompat notificationManager;
     private Builder builder;
     private Account account;
@@ -44,8 +42,9 @@ public class SyncNotificationsTest {
 
     @Before
     public void setUp() throws Exception {
+        notification = createFakeNotification();
         notificationManager = createFakeNotificationManager();
-        builder = createFakeNotificationBuilder();
+        builder = createFakeNotificationBuilder(notification);
         NotificationController controller = createFakeNotificationController(notificationManager, builder);
         account = createFakeAccount();
         contentIntent = createFakeContentIntent();
@@ -60,7 +59,7 @@ public class SyncNotificationsTest {
 
         syncNotifications.showSendingNotification(account);
 
-        verify(notificationManager).notify(eq(notificationId), any(Notification.class));
+        verify(notificationManager).notify(notificationId, notification);
         verify(builder).setSmallIcon(R.drawable.ic_notify_check_mail);
         verify(builder).setTicker("Sending mail: " + ACCOUNT_NAME);
         verify(builder).setContentTitle("Sending mail");
@@ -85,7 +84,7 @@ public class SyncNotificationsTest {
 
         syncNotifications.showFetchingMailNotification(account, folder);
 
-        verify(notificationManager).notify(eq(notificationId), any(Notification.class));
+        verify(notificationManager).notify(notificationId, notification);
         verify(builder).setSmallIcon(R.drawable.ic_notify_check_mail);
         verify(builder).setTicker("Checking mail: " + ACCOUNT_NAME + ":" + FOLDER_NAME);
         verify(builder).setContentTitle("Checking mail");
@@ -103,12 +102,19 @@ public class SyncNotificationsTest {
         verify(notificationManager).cancel(notificationId);
     }
 
+
+    private Notification createFakeNotification() {
+        return mock(Notification.class);
+    }
+
     private NotificationManagerCompat createFakeNotificationManager() {
         return mock(NotificationManagerCompat.class);
     }
 
-    private Builder createFakeNotificationBuilder() {
-        return MockHelper.mockBuilder(Builder.class);
+    private Builder createFakeNotificationBuilder(Notification notification) {
+        Builder builder = MockHelper.mockBuilder(Builder.class);
+        when(builder.build()).thenReturn(notification);
+        return builder;
     }
 
     private NotificationController createFakeNotificationController(NotificationManagerCompat notificationManager,
@@ -125,6 +131,7 @@ public class SyncNotificationsTest {
         Account account = mock(Account.class);
         when(account.getAccountNumber()).thenReturn(ACCOUNT_NUMBER);
         when(account.getDescription()).thenReturn(ACCOUNT_NAME);
+        when(account.getOutboxFolder()).thenReturn("OUTBOX");
 
         return account;
     }
@@ -135,13 +142,14 @@ public class SyncNotificationsTest {
 
     private NotificationActionCreator createActionBuilder(PendingIntent contentIntent) {
         NotificationActionCreator actionBuilder = mock(NotificationActionCreator.class);
-        when(actionBuilder.createViewFolderPendingIntent(any(Account.class), anyString(), anyInt()))
+        when(actionBuilder.createViewFolderPendingIntent(eq(account), anyString(), anyInt()))
                 .thenReturn(contentIntent);
         return actionBuilder;
     }
 
     private Folder createFakeFolder() {
         Folder folder = mock(Folder.class);
+        when(folder.getServerId()).thenReturn(FOLDER_SERVER_ID);
         when(folder.getName()).thenReturn(FOLDER_NAME);
         return folder;
     }

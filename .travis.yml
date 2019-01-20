@@ -1,10 +1,14 @@
 language: android
 android:
  components:
-    - build-tools-23.0.1
-    - android-22
+    - tools
+    - build-tools-27.0.3
+    - android-27
     - extra-android-m2repository
 
-jdk: oraclejdk7
+jdk: oraclejdk8
+
+before_install:
+- yes | sdkmanager "platforms;android-27"
 
 script: ./gradlew testDebug

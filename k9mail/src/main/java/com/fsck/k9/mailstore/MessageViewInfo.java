@@ -1,6 +1,7 @@
 package com.fsck.k9.mailstore;
 
 
+import java.util.Collections;
 import java.util.List;
 
 import com.fsck.k9.mail.Message;
@@ -9,28 +10,67 @@ import com.fsck.k9.mail.Part;
 
 public class MessageViewInfo {
     public final Message message;
-    public final List<MessageViewContainer> containers;
+    public final boolean isMessageIncomplete;
+    public final Part rootPart;
+    public final String subject;
+    public final boolean isSubjectEncrypted;
+    public final AttachmentResolver attachmentResolver;
+    public final ViewableContainer viewable;
+    public final CryptoResultAnnotation cryptoResultAnnotation;
+    public final List<AttachmentViewInfo> attachments;
+    public final String extraText;
+    public final List<AttachmentViewInfo> extraAttachments;
 
 
-    public MessageViewInfo(List<MessageViewContainer> containers, Message message) {
-        this.containers = containers;
+    public MessageViewInfo(
+            Message message, boolean isMessageIncomplete, Part rootPart,
+            String subject, boolean isSubjectEncrypted,
+            ViewableContainer viewable, List<AttachmentViewInfo> attachments,
+            CryptoResultAnnotation cryptoResultAnnotation,
+            AttachmentResolver attachmentResolver,
+            String extraText, List<AttachmentViewInfo> extraAttachments) {
         this.message = message;
+        this.isMessageIncomplete = isMessageIncomplete;
+        this.rootPart = rootPart;
+        this.subject = subject;
+        this.isSubjectEncrypted = isSubjectEncrypted;
+        this.viewable = viewable;
+        this.cryptoResultAnnotation = cryptoResultAnnotation;
+        this.attachmentResolver = attachmentResolver;
+        this.attachments = attachments;
+        this.extraText = extraText;
+        this.extraAttachments = extraAttachments;
     }
 
+    static MessageViewInfo createWithExtractedContent(Message message, Part rootPart, boolean isMessageIncomplete,
+            String text, List<AttachmentViewInfo> attachments, AttachmentResolver attachmentResolver) {
+        return new MessageViewInfo(
+                message, isMessageIncomplete, rootPart, null, false, text, attachments, null, attachmentResolver, null,
+                Collections.<AttachmentViewInfo>emptyList());
+    }
 
-    public static class MessageViewContainer {
-        public final ViewableContainer viewable;
-        public final Part rootPart;
-        public final List<AttachmentViewInfo> attachments;
-        public final OpenPgpResultAnnotation cryptoAnnotation;
+    public static MessageViewInfo createWithErrorState(Message message, boolean isMessageIncomplete) {
+        return new MessageViewInfo(message, isMessageIncomplete, null, null, false, null, null, null, null, null, null);
+    }
 
+    public static MessageViewInfo createForMetadataOnly(Message message, boolean isMessageIncomplete) {
+        return new MessageViewInfo(message, isMessageIncomplete, null, null, false, null, null, null, null, null, null);
+    }
 
-        MessageViewContainer(ViewableContainer viewable, Part rootPart, List<AttachmentViewInfo> attachments,
-                OpenPgpResultAnnotation cryptoAnnotation) {
-            this.viewable = viewable;
-            this.rootPart = rootPart;
-            this.attachments = attachments;
-            this.cryptoAnnotation = cryptoAnnotation;
-        }
+    MessageViewInfo withCryptoData(CryptoResultAnnotation rootPartAnnotation, String extraViewableText,
+            List<AttachmentViewInfo> extraAttachmentInfos) {
+        return new MessageViewInfo(
+                message, isMessageIncomplete, rootPart, subject, isSubjectEncrypted, text, attachments,
+                rootPartAnnotation,
+                attachmentResolver,
+                extraViewableText, extraAttachmentInfos
+        );
+    }
+
+    MessageViewInfo withSubject(String subject, boolean isSubjectEncrypted) {
+        return new MessageViewInfo(
+                message, isMessageIncomplete, rootPart, subject, isSubjectEncrypted, text, attachments,
+                cryptoResultAnnotation, attachmentResolver, extraText, extraAttachments
+        );
     }
 }

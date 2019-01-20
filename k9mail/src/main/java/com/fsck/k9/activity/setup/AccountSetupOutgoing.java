@@ -1,35 +1,45 @@
 
 package com.fsck.k9.activity.setup;
 
+
+import java.net.URI;
+import java.net.URISyntaxException;
+
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.method.DigitsKeyListener;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
-import android.widget.*;
+import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import com.fsck.k9.*;
+import com.fsck.k9.Account;
+import com.fsck.k9.Preferences;
+import com.fsck.k9.R;
 import com.fsck.k9.account.AccountCreator;
 import com.fsck.k9.activity.K9Activity;
 import com.fsck.k9.activity.setup.AccountSetupCheckSettings.CheckDirection;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.AuthType;
-import com.fsck.k9.mail.ServerSettings.Type;
 import com.fsck.k9.mail.ConnectionSecurity;
 import com.fsck.k9.mail.ServerSettings;
-import com.fsck.k9.mail.Transport;
+import com.fsck.k9.mail.ServerSettings.Type;
+import com.fsck.k9.mail.TransportUris;
 import com.fsck.k9.view.ClientCertificateSpinner;
 import com.fsck.k9.view.ClientCertificateSpinner.OnClientCertificateChangedListener;
-
-import java.net.URI;
-import java.net.URISyntaxException;
+import timber.log.Timber;
 
 public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
     OnCheckedChangeListener {
@@ -74,6 +84,13 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
         i.setAction(Intent.ACTION_EDIT);
         i.putExtra(EXTRA_ACCOUNT, account.getUuid());
         return i;
+    }
+
+    public static void actionEditOutgoingSettings(Context context, String accountUuid) {
+        Intent intent = new Intent(context, AccountSetupOutgoing.class);
+        intent.setAction(Intent.ACTION_EDIT);
+        intent.putExtra(EXTRA_ACCOUNT, accountUuid);
+        context.startActivity(intent);
     }
 
     @Override
@@ -135,7 +152,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
         }
 
         try {
-            ServerSettings settings = Transport.decodeTransportUri(mAccount.getTransportUri());
+            ServerSettings settings = TransportUris.decodeTransportUri(mAccount.getTransportUri());
 
             updateAuthPlainTextFromSecurityType(settings.connectionSecurity);
 
@@ -467,7 +484,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
         String newHost = mServerView.getText().toString();
         int newPort = Integer.parseInt(mPortView.getText().toString());
         ServerSettings server = new ServerSettings(Type.SMTP, newHost, newPort, securityType, authType, username, password, clientCertificateAlias);
-        uri = Transport.createTransportUri(server);
+        uri = TransportUris.createTransportUri(server);
         mAccount.deleteCertificate(newHost, newPort, CheckDirection.OUTGOING);
         mAccount.setTransportUri(uri);
         AccountSetupCheckSettings.actionCheckSettings(this, mAccount, CheckDirection.OUTGOING);
@@ -487,7 +504,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
     }
 
     private void failure(Exception use) {
-        Log.e(K9.LOG_TAG, "Failure", use);
+        Timber.e(use, "Failure");
         String toastText = getString(R.string.account_setup_bad_uri, use.getMessage());
 
         Toast toast = Toast.makeText(getApplication(), toastText, Toast.LENGTH_LONG);

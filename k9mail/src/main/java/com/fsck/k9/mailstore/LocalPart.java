@@ -3,9 +3,7 @@ package com.fsck.k9.mailstore;
 
 public interface LocalPart {
     String getAccountUuid();
-    long getId();
-    String getDisplayName();
+    long getPartId();
     long getSize();
-    boolean isFirstClassAttachment();
     LocalMessage getMessage();
 }

@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -17,10 +16,8 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.fsck.k9.Account;
-import com.fsck.k9.K9;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.Flag;
 import com.fsck.k9.mail.internet.MimeHeader;
@@ -28,6 +25,7 @@ import com.fsck.k9.mail.internet.MimeUtility;
 import com.fsck.k9.mailstore.StorageManager;
 import org.apache.james.mime4j.codec.QuotedPrintableOutputStream;
 import org.apache.james.mime4j.util.MimeUtil;
+import timber.log.Timber;
 
 
 class MigrationTo51 {
@@ -65,7 +63,7 @@ class MigrationTo51 {
 
         File attachmentDirNew, attachmentDirOld;
         Account account = migrationsHelper.getAccount();
-        attachmentDirNew = StorageManager.getInstance(K9.app).getAttachmentDirectory(
+        attachmentDirNew = StorageManager.getInstance(migrationsHelper.getContext()).getAttachmentDirectory(
                 account.getUuid(), account.getLocalStorageProviderId());
         attachmentDirOld = renameOldAttachmentDirAndCreateNew(account, attachmentDirNew);
 
@@ -73,7 +71,7 @@ class MigrationTo51 {
                 new String[] { "id", "flags", "html_content", "text_content", "mime_type", "attachment_count" },
                 null, null, null, null, null);
         try {
-            Log.d(K9.LOG_TAG, "migrating " + msgCursor.getCount() + " messages");
+            Timber.d("migrating %d messages", msgCursor.getCount());
             ContentValues cv = new ContentValues();
             while (msgCursor.moveToNext()) {
                 long messageId = msgCursor.getLong(0);
@@ -124,7 +122,7 @@ class MigrationTo51 {
                     cv.put("attachment_count", attachmentCount);
                     db.update("messages", cv, "id = ?", new String[] { Long.toString(messageId) });
                 } catch (IOException e) {
-                    Log.e(K9.LOG_TAG, "error inserting into database", e);
+                    Timber.e(e, "error inserting into database");
                 }
             }
 
@@ -144,30 +142,39 @@ class MigrationTo51 {
         boolean moveOk = attachmentDirNew.renameTo(attachmentDirOld);
         if (!moveOk) {
             // TODO escalate?
-            Log.e(K9.LOG_TAG, "Error moving attachment dir! All attachments might be lost!");
+            Timber.e("Error moving attachment dir! All attachments might be lost!");
         }
         boolean mkdirOk = attachmentDirNew.mkdir();
         if (!mkdirOk) {
             // TODO escalate?
-            Log.e(K9.LOG_TAG, "Error creating new attachment dir!");
+            Timber.e("Error creating new attachment dir!");
         }
         return attachmentDirOld;
     }
 
     private static void dropOldMessagesTable(SQLiteDatabase db) {
-        Log.d(K9.LOG_TAG, "Migration succeeded, dropping old tables.");
+        Timber.d("Migration succeeded, dropping old tables.");
         db.execSQL("DROP TABLE messages_old");
         db.execSQL("DROP TABLE attachments");
         db.execSQL("DROP TABLE headers");
     }
 
     private static void cleanUpOldAttachmentDirectory(File attachmentDirOld) {
-        for (File file : attachmentDirOld.listFiles()) {
-            Log.d(K9.LOG_TAG, "deleting stale attachment file: " + file.getName());
-            file.delete();
+        if (!attachmentDirOld.exists()) {
+            Timber.d("Old attachment directory doesn't exist: %s", attachmentDirOld.getAbsolutePath());
+            return;
         }
-        Log.d(K9.LOG_TAG, "deleting old attachment directory");
-        attachmentDirOld.delete();
+        for (File file : attachmentDirOld.listFiles()) {
+            Timber.d("deleting stale attachment file: %s", file.getName());
+            if (file.exists() && !file.delete()) {
+                Timber.d("Failed to delete stale attachement file: %s", file.getAbsolutePath());
+            }
+        }
+
+        Timber.d("deleting old attachment directory");
+        if (attachmentDirOld.exists() && !attachmentDirOld.delete()) {
+            Timber.d("Failed to delete old attachement directory: %s", attachmentDirOld.getAbsolutePath());
+        }
     }
 
     private static void copyMessageMetadataToNewTable(SQLiteDatabase db) {
@@ -246,7 +253,7 @@ class MigrationTo51 {
     private static MimeStructureState migratePgpMimeEncryptedContent(SQLiteDatabase db, long messageId,
             File attachmentDirOld, File attachmentDirNew, MimeHeader mimeHeader, MimeStructureState structureState) {
 
-        Log.d(K9.LOG_TAG, "Attempting to migrate multipart/encrypted as pgp/mime");
+        Timber.d("Attempting to migrate multipart/encrypted as pgp/mime");
 
         // we only handle attachment count == 2 here, so simply sorting application/pgp-encrypted
         // to the front (and application/octet-stream second) should suffice.
@@ -260,7 +267,7 @@ class MigrationTo51 {
 
         try {
             if (cursor.getCount() != 2) {
-                Log.e(K9.LOG_TAG, "Found multipart/encrypted but bad number of attachments, handling as regular mail");
+                Timber.e("Found multipart/encrypted but bad number of attachments, handling as regular mail");
                 return null;
             }
 
@@ -274,8 +281,8 @@ class MigrationTo51 {
             String firstPartContentUriString = cursor.getString(5);
 
             if (!MimeUtil.isSameMimeType(firstPartMimeType, "application/pgp-encrypted")) {
-                Log.e(K9.LOG_TAG,
-                        "First part in multipart/encrypted wasn't application/pgp-encrypted, not handling as pgp/mime");
+                Timber.e("First part in multipart/encrypted wasn't application/pgp-encrypted, " +
+                        "not handling as pgp/mime");
                 return null;
             }
 
@@ -289,8 +296,7 @@ class MigrationTo51 {
             String secondPartContentUriString = cursor.getString(5);
 
             if (!MimeUtil.isSameMimeType(secondPartMimeType, "application/octet-stream")) {
-                Log.e(K9.LOG_TAG,
-                        "First part in multipart/encrypted wasn't application/octet-stream, not handling as pgp/mime");
+                Timber.e("First part in multipart/encrypted wasn't application/octet-stream, not handling as pgp/mime");
                 return null;
             }
 
@@ -333,7 +339,7 @@ class MigrationTo51 {
     private static MimeStructureState migrateComplexMailContent(SQLiteDatabase db,
             File attachmentDirOld, File attachmentDirNew, long messageId, String htmlContent, String textContent,
             MimeHeader mimeHeader, MimeStructureState structureState) throws IOException {
-        Log.d(K9.LOG_TAG, "Processing mail with complex data structure as multipart/mixed");
+        Timber.d("Processing mail with complex data structure as multipart/mixed - message ID %d", messageId);
 
         String boundary = MimeUtility.getHeaderParameter(
                 mimeHeader.getFirstHeader(MimeHeader.HEADER_CONTENT_TYPE), "boundary");
@@ -381,8 +387,9 @@ class MigrationTo51 {
             while (cursor.moveToNext()) {
                 String contentUriString = cursor.getString(0);
                 String contentId = cursor.getString(1);
+
                 // this is not super efficient, but occurs only once or twice
-                htmlContent = htmlContent.replaceAll(Pattern.quote(contentUriString), "cid:" + contentId);
+                htmlContent = htmlContent.replace(contentUriString, "cid:" + contentId);
             }
         } finally {
             cursor.close();
@@ -394,7 +401,7 @@ class MigrationTo51 {
     private static MimeStructureState migrateSimpleMailContent(SQLiteDatabase db, String htmlContent,
             String textContent, String mimeType, MimeHeader mimeHeader, MimeStructureState structureState)
             throws IOException {
-        Log.d(K9.LOG_TAG, "Processing mail with simple structure");
+        Timber.d("Processing mail with simple structure");
 
         if (MimeUtil.isSameMimeType(mimeType, "text/plain")) {
             return insertTextualPartIntoDatabase(db, structureState, mimeHeader, textContent, false);
@@ -442,10 +449,13 @@ class MigrationTo51 {
     private static MimeStructureState insertMimeAttachmentPart(SQLiteDatabase db, File attachmentDirOld,
             File attachmentDirNew, MimeStructureState structureState, long id, int size, String name, String mimeType,
             String storeData, String contentUriString, String contentId, String contentDisposition) {
-        if (K9.DEBUG) {
-            Log.d(K9.LOG_TAG, "processing attachment " + id + ", " + name + ", "
-                    + mimeType + ", " + storeData + ", " + contentUriString);
-        }
+
+        Timber.d("processing attachment %d, %s, %s, %s, %s",
+                id,
+                name,
+                mimeType,
+                storeData,
+                contentUriString);
 
         if (contentDisposition == null) {
             contentDisposition = "attachment";
@@ -474,10 +484,10 @@ class MigrationTo51 {
                 boolean isExistingAttachmentFile = attachmentFile.exists();
 
                 if (!isMatchingAttachmentId) {
-                    Log.e(K9.LOG_TAG, "mismatched attachment id. mark as missing");
+                    Timber.e("mismatched attachment id. mark as missing");
                     attachmentFileToMove = null;
                 } else if (!isExistingAttachmentFile) {
-                    Log.e(K9.LOG_TAG, "attached file doesn't exist. mark as missing");
+                    Timber.e("attached file doesn't exist. mark as missing");
                     attachmentFileToMove = null;
                 } else {
                     attachmentFileToMove = attachmentFile;
@@ -489,8 +499,8 @@ class MigrationTo51 {
         } else {
             attachmentFileToMove = null;
         }
-        if (K9.DEBUG && attachmentFileToMove == null) {
-            Log.d(K9.LOG_TAG, "matching attachment is in local cache");
+        if (attachmentFileToMove == null) {
+            Timber.d("matching attachment is in local cache");
         }
 
         boolean hasContentTypeAndIsInline = !TextUtils.isEmpty(contentId) && "inline".equalsIgnoreCase(contentDisposition);
@@ -515,7 +525,7 @@ class MigrationTo51 {
         if (attachmentFileToMove != null) {
             boolean moveOk = attachmentFileToMove.renameTo(new File(attachmentDirNew, Long.toString(partId)));
             if (!moveOk) {
-                Log.e(K9.LOG_TAG, "Moving attachment to new dir failed!");
+                Timber.e("Moving attachment to new dir failed!");
             }
         }
         return structureState;

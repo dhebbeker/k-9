@@ -16,15 +16,13 @@ import com.fsck.k9.K9;
 import com.fsck.k9.K9.NotificationQuickDelete;
 import com.fsck.k9.MockHelper;
 import com.fsck.k9.R;
+import com.fsck.k9.RobolectricTest;
 import com.fsck.k9.activity.MessageReference;
 import com.fsck.k9.controller.MessagingController;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
-import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
@@ -35,9 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-@RunWith(RobolectricTestRunner.class)
-@Config(manifest = "src/main/AndroidManifest.xml", sdk = 21)
-public class WearNotificationsTest {
+public class WearNotificationsTest extends RobolectricTest {
     private static final int ACCOUNT_NUMBER = 42;
     private static final String ACCOUNT_NAME = "accountName";
 
@@ -77,8 +73,8 @@ public class WearNotificationsTest {
 
         assertEquals(notification, result);
         verifyExtendWasOnlyCalledOnce();
-        verifyAddAction(R.drawable.ic_action_single_message_options_dark, "Reply", replyPendingIntent);
-        verifyAddAction(R.drawable.ic_action_mark_as_read_dark, "Mark Read", markAsReadPendingIntent);
+        verifyAddAction(R.drawable.ic_reply_all_dark, "Reply", replyPendingIntent);
+        verifyAddAction(R.drawable.ic_opened_envelope_dark, "Mark Read", markAsReadPendingIntent);
         verifyNumberOfActions(2);
     }
 
@@ -98,7 +94,7 @@ public class WearNotificationsTest {
 
         assertEquals(notification, result);
         verifyExtendWasOnlyCalledOnce();
-        verifyAddAction(R.drawable.ic_action_delete_dark, "Delete", deletePendingIntent);
+        verifyAddAction(R.drawable.ic_trash_can_dark, "Delete", deletePendingIntent);
     }
 
     @Test
@@ -117,7 +113,7 @@ public class WearNotificationsTest {
 
         assertEquals(notification, result);
         verifyExtendWasOnlyCalledOnce();
-        verifyAddAction(R.drawable.ic_action_archive_dark, "Archive", archivePendingIntent);
+        verifyAddAction(R.drawable.ic_archive_dark, "Archive", archivePendingIntent);
     }
 
     @Test
@@ -136,7 +132,7 @@ public class WearNotificationsTest {
 
         assertEquals(notification, result);
         verifyExtendWasOnlyCalledOnce();
-        verifyAddAction(R.drawable.ic_action_spam_dark, "Spam", markAsSpamPendingIntent);
+        verifyAddAction(R.drawable.ic_alert_octagon_dark, "Spam", markAsSpamPendingIntent);
     }
 
     @Test
@@ -152,7 +148,7 @@ public class WearNotificationsTest {
         wearNotifications.addSummaryActions(builder, notificationData);
 
         verifyExtendWasOnlyCalledOnce();
-        verifyAddAction(R.drawable.ic_action_mark_as_read_dark, "Mark All Read", markAllAsReadPendingIntent);
+        verifyAddAction(R.drawable.ic_opened_envelope_dark, "Mark All Read", markAllAsReadPendingIntent);
         verifyNumberOfActions(1);
     }
 
@@ -169,7 +165,7 @@ public class WearNotificationsTest {
         wearNotifications.addSummaryActions(builder, notificationData);
 
         verifyExtendWasOnlyCalledOnce();
-        verifyAddAction(R.drawable.ic_action_delete_dark, "Delete All", deletePendingIntent);
+        verifyAddAction(R.drawable.ic_trash_can_dark, "Delete All", deletePendingIntent);
     }
 
     @Test
@@ -185,7 +181,7 @@ public class WearNotificationsTest {
         wearNotifications.addSummaryActions(builder, notificationData);
 
         verifyExtendWasOnlyCalledOnce();
-        verifyAddAction(R.drawable.ic_action_archive_dark, "Archive All", archivePendingIntent);
+        verifyAddAction(R.drawable.ic_archive_dark, "Archive All", archivePendingIntent);
     }
 
     private void disableOptionalActions() {
@@ -199,11 +195,11 @@ public class WearNotificationsTest {
     }
 
     private void disableArchiveAction() {
-        when(account.getArchiveFolderName()).thenReturn(K9.FOLDER_NONE);
+        when(account.getArchiveFolder()).thenReturn(K9.FOLDER_NONE);
     }
 
     private void disableSpamAction() {
-        when(account.getSpamFolderName()).thenReturn(K9.FOLDER_NONE);
+        when(account.getSpamFolder()).thenReturn(K9.FOLDER_NONE);
     }
 
     private void enableDeleteAction() {
@@ -212,11 +208,11 @@ public class WearNotificationsTest {
     }
 
     private void enableArchiveAction() {
-        when(account.getArchiveFolderName()).thenReturn("Archive");
+        when(account.getArchiveFolder()).thenReturn("Archive");
     }
 
     private void enableSpamAction() {
-        when(account.getSpamFolderName()).thenReturn("Spam");
+        when(account.getSpamFolder()).thenReturn("Spam");
     }
 
     private void disableOptionalSummaryActions() {
@@ -267,7 +263,7 @@ public class WearNotificationsTest {
     }
 
     private MessageReference createMessageReference(int number) {
-        return new MessageReference(null, null, String.valueOf(number), null);
+        return new MessageReference("account", "folder", String.valueOf(number), null);
     }
 
     private PendingIntent createFakePendingIntent(int requestCode) {
@@ -310,7 +306,7 @@ public class WearNotificationsTest {
     }
 
 
-    static class ActionMatcher extends ArgumentMatcher<WearableExtender> {
+    static class ActionMatcher implements ArgumentMatcher<WearableExtender> {
         private int icon;
         private String title;
         private PendingIntent pendingIntent;
@@ -322,13 +318,8 @@ public class WearNotificationsTest {
         }
 
         @Override
-        public boolean matches(Object argument) {
-            if (!(argument instanceof WearableExtender)) {
-                return false;
-            }
-
-            WearableExtender wearableExtender = (WearableExtender) argument;
-            for (Action action : wearableExtender.getActions()) {
+        public boolean matches(WearableExtender argument) {
+            for (Action action : argument.getActions()) {
                 if (action.icon == icon && action.title.equals(title) && action.actionIntent == pendingIntent) {
                     return true;
                 }
@@ -338,7 +329,7 @@ public class WearNotificationsTest {
         }
     }
 
-    static class NumberOfActionsMatcher extends ArgumentMatcher<WearableExtender> {
+    static class NumberOfActionsMatcher implements ArgumentMatcher<WearableExtender> {
         private final int expectedNumberOfActions;
 
         public NumberOfActionsMatcher(int expectedNumberOfActions) {
@@ -346,13 +337,8 @@ public class WearNotificationsTest {
         }
 
         @Override
-        public boolean matches(Object argument) {
-            if (!(argument instanceof WearableExtender)) {
-                return false;
-            }
-
-            WearableExtender wearableExtender = (WearableExtender) argument;
-            return wearableExtender.getActions().size() == expectedNumberOfActions;
+        public boolean matches(WearableExtender argument) {
+            return argument.getActions().size() == expectedNumberOfActions;
         }
     }
 

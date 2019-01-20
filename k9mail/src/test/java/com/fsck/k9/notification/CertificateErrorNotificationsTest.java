@@ -11,29 +11,24 @@ import android.support.v4.app.NotificationManagerCompat;
 import com.fsck.k9.Account;
 import com.fsck.k9.MockHelper;
 import com.fsck.k9.R;
+import com.fsck.k9.RobolectricTest;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-@RunWith(RobolectricTestRunner.class)
-@Config(manifest = "src/main/AndroidManifest.xml", sdk = 21)
-public class CertificateErrorNotificationsTest {
+public class CertificateErrorNotificationsTest extends RobolectricTest {
     private static final boolean INCOMING = true;
     private static final boolean OUTGOING = false;
     private static final int ACCOUNT_NUMBER = 1;
     private static final String ACCOUNT_NAME = "TestAccount";
 
 
+    private Notification notification;
     private NotificationManagerCompat notificationManager;
     private NotificationCompat.Builder builder;
     private NotificationController controller;
@@ -44,8 +39,9 @@ public class CertificateErrorNotificationsTest {
 
     @Before
     public void setUp() throws Exception {
+        notification = createFakeNotification();
         notificationManager = createFakeNotificationManager();
-        builder = createFakeNotificationBuilder();
+        builder = createFakeNotificationBuilder(notification);
         controller = createFakeNotificationController(notificationManager, builder);
         account = createFakeAccount();
         contentIntent = createFakeContentIntent();
@@ -59,7 +55,7 @@ public class CertificateErrorNotificationsTest {
 
         certificateErrorNotifications.showCertificateErrorNotification(account, INCOMING);
 
-        verify(notificationManager).notify(eq(notificationId), any(Notification.class));
+        verify(notificationManager).notify(notificationId, notification);
         assertCertificateErrorNotificationContents();
     }
 
@@ -78,7 +74,7 @@ public class CertificateErrorNotificationsTest {
 
         certificateErrorNotifications.showCertificateErrorNotification(account, OUTGOING);
 
-        verify(notificationManager).notify(eq(notificationId), any(Notification.class));
+        verify(notificationManager).notify(notificationId, notification);
         assertCertificateErrorNotificationContents();
     }
 
@@ -100,12 +96,18 @@ public class CertificateErrorNotificationsTest {
         verify(builder).setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
     }
 
+    private Notification createFakeNotification() {
+        return mock(Notification.class);
+    }
+
     private NotificationManagerCompat createFakeNotificationManager() {
         return mock(NotificationManagerCompat.class);
     }
 
-    private Builder createFakeNotificationBuilder() {
-        return MockHelper.mockBuilder(NotificationCompat.Builder.class);
+    private Builder createFakeNotificationBuilder(Notification notification) {
+        Builder builder = MockHelper.mockBuilder(Builder.class);
+        when(builder.build()).thenReturn(notification);
+        return builder;
     }
 
     private NotificationController createFakeNotificationController(NotificationManagerCompat notificationManager,

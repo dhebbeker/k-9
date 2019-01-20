@@ -16,7 +16,7 @@
         android:id="@+id/alternate_container_header"
         >
 
-        <QuickContactBadge
+        <com.fsck.k9.ui.ContactBadge
             android:layout_width="42dp"
             android:layout_height="42dp"
             android:layout_marginLeft="12dp"
@@ -66,7 +66,7 @@
             android:padding="8dp"
             android:id="@+id/alternate_remove"
             android:background="?android:selectableItemBackground"
-            android:src="@drawable/ic_action_cancel_light"
+            android:src="?attr/iconActionCancel"
             />
 
     </LinearLayout>
@@ -108,28 +108,42 @@
             />
 
         <FrameLayout
+            android:id="@+id/alternate_crypto_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:padding="13dp">
+            android:padding="13dp"
+            tools:visibility="gone">
 
             <ImageView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="left|center_vertical"
                 android:src="@drawable/status_dots"
-                android:tint="@color/openpgp_grey"
+                android:tint="?attr/openpgp_grey"
                 />
 
             <ImageView
-                android:id="@+id/alternate_crypto_status"
+                android:id="@+id/alternate_crypto_status_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="left|center_vertical"
                 tools:src="@drawable/status_lock_dots_2"
-                tools:tint="@color/openpgp_grey"
+                tools:tint="?attr/openpgp_grey"
                 />
 
         </FrameLayout>
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_gravity="center_vertical"
+            android:layout_margin="13dp"
+            android:id="@+id/alternate_crypto_status_simple"
+            android:src="@drawable/status_lock"
+            android:tint="?attr/openpgp_black"
+            android:visibility="gone"
+            tools:visibility="visible"
+            />
 
     </LinearLayout>
 

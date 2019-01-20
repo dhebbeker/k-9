@@ -8,11 +8,7 @@ import java.io.Serializable;
 import java.util.List;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.app.LoaderManager;
-import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Context;
-import android.content.Loader;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,10 +16,13 @@ import android.os.Handler;
 import android.provider.ContactsContract.Contacts;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.app.LoaderManager.LoaderCallbacks;
+import android.support.v4.content.Loader;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -42,6 +41,8 @@ import com.fsck.k9.activity.compose.RecipientLoader;
 import com.fsck.k9.mail.Address;
 import com.fsck.k9.view.RecipientSelectView.Recipient;
 import com.tokenautocomplete.TokenCompleteTextView;
+import org.apache.james.mime4j.util.CharsetUtil;
+import timber.log.Timber;
 
 
 public class RecipientSelectView extends TokenCompleteTextView<Recipient> implements LoaderCallbacks<List<Recipient>>,
@@ -56,13 +57,16 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
 
 
     private RecipientAdapter adapter;
+    @Nullable
     private String cryptoProvider;
+    private boolean showAdvancedInfo;
+    private boolean showCryptoEnabled;
+    @Nullable
     private LoaderManager loaderManager;
 
     private ListPopupWindow alternatesPopup;
     private AlternateRecipientAdapter alternatesAdapter;
     private Recipient alternatesPopupRecipient;
-    private boolean attachedToWindow = true;
     private TokenListener<Recipient> listener;
 
 
@@ -88,7 +92,7 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
         alternatesAdapter = new AlternateRecipientAdapter(context, this);
         alternatesPopup.setAdapter(alternatesAdapter);
 
-        // don't allow duplicates, based on equality of recipient objects, which is e-mail addresses
+        // don't allow duplicates, based on equality of recipient objects, which is email addresses
         allowDuplicates(false);
 
         // if a token is completed, pick an entry based on best guess.
@@ -97,6 +101,8 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
 
         adapter = new RecipientAdapter(context);
         setAdapter(adapter);
+
+        setLongClickable(true);
     }
 
     @Override
@@ -126,21 +132,17 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
 
         boolean hasCryptoProvider = cryptoProvider != null;
         if (!hasCryptoProvider) {
-            holder.cryptoStatusRed.setVisibility(View.GONE);
-            holder.cryptoStatusOrange.setVisibility(View.GONE);
-            holder.cryptoStatusGreen.setVisibility(View.GONE);
-        } else if (recipient.cryptoStatus == RecipientCryptoStatus.UNAVAILABLE) {
-            holder.cryptoStatusRed.setVisibility(View.VISIBLE);
-            holder.cryptoStatusOrange.setVisibility(View.GONE);
-            holder.cryptoStatusGreen.setVisibility(View.GONE);
-        } else if (recipient.cryptoStatus == RecipientCryptoStatus.AVAILABLE_UNTRUSTED) {
-            holder.cryptoStatusRed.setVisibility(View.GONE);
-            holder.cryptoStatusOrange.setVisibility(View.VISIBLE);
-            holder.cryptoStatusGreen.setVisibility(View.GONE);
-        } else if (recipient.cryptoStatus == RecipientCryptoStatus.AVAILABLE_TRUSTED) {
-            holder.cryptoStatusRed.setVisibility(View.GONE);
-            holder.cryptoStatusOrange.setVisibility(View.GONE);
-            holder.cryptoStatusGreen.setVisibility(View.VISIBLE);
+            holder.hideCryptoState();
+            return;
+        }
+
+        boolean isAvailable = recipient.cryptoStatus == RecipientCryptoStatus.AVAILABLE_TRUSTED ||
+                recipient.cryptoStatus == RecipientCryptoStatus.AVAILABLE_UNTRUSTED;
+        if (!showAdvancedInfo) {
+            holder.showSimpleCryptoState(isAvailable, showCryptoEnabled);
+        } else {
+            boolean isVerified = recipient.cryptoStatus == RecipientCryptoStatus.AVAILABLE_TRUSTED;
+            holder.showAdvancedCryptoState(isAvailable, isVerified);
         }
     }
 
@@ -167,7 +169,12 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
     @Override
     protected Recipient defaultObject(String completionText) {
         Address[] parsedAddresses = Address.parse(completionText);
+        if (!CharsetUtil.isASCII(completionText)) {
+            setError(getContext().getString(R.string.recipient_error_non_ascii));
+            return null;
+        }
         if (parsedAddresses.length == 0 || parsedAddresses[0].getAddress() == null) {
+            setError(getContext().getString(R.string.recipient_error_parse_failed));
             return null;
         }
 
@@ -178,22 +185,18 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
         return getObjects().isEmpty();
     }
 
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-
-        attachedToWindow = true;
-
-        if (getContext() instanceof Activity) {
-            Activity activity = (Activity) getContext();
-            loaderManager = activity.getLoaderManager();
-        }
+    public void setLoaderManager(@Nullable LoaderManager loaderManager) {
+        this.loaderManager = loaderManager;
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        attachedToWindow = false;
+        if (loaderManager != null) {
+            loaderManager.destroyLoader(LOADER_ID_ALTERNATES);
+            loaderManager.destroyLoader(LOADER_ID_FILTERING);
+            loaderManager = null;
+        }
     }
 
     @Override
@@ -202,6 +205,20 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
         if (hasFocus) {
             displayKeyboard();
         }
+    }
+
+    /**
+     * TokenCompleteTextView removes composing strings, and etc, but leaves internal composition
+     * predictions partially constructed. Changing either/or the Selection or Candidate start/end
+     * positions, forces the IMM to reset cleaner.
+     */
+    @Override
+    protected void replaceText(CharSequence text) {
+        super.replaceText(text);
+
+        InputMethodManager imm = (InputMethodManager) getContext().getSystemService(
+                Context.INPUT_METHOD_SERVICE);
+        imm.updateSelection(this, getSelectionStart(), getSelectionEnd(), -1, -1);
     }
 
     private void displayKeyboard() {
@@ -225,14 +242,9 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
     @Override
     public void performCompletion() {
         if (getListSelection() == ListView.INVALID_POSITION && enoughToFilter()) {
-            Object bestGuess;
-            if (getAdapter().getCount() > 0) {
-                bestGuess = getAdapter().getItem(0);
-            } else {
-                bestGuess = defaultObject(currentCompletionText());
-            }
-            if (bestGuess != null) {
-                replaceText(convertSelectionToString(bestGuess));
+            Object recipientText = defaultObject(currentCompletionText());
+            if (recipientText != null) {
+                replaceText(convertSelectionToString(recipientText));
             }
         } else {
             super.performCompletion();
@@ -241,8 +253,11 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
 
     @Override
     protected void performFiltering(@NonNull CharSequence text, int start, int end, int keyCode) {
-        String query = text.subSequence(start, end).toString();
+        if (loaderManager == null) {
+            return;
+        }
 
+        String query = text.subSequence(start, end).toString();
         if (TextUtils.isEmpty(query) || query.length() < MINIMUM_LENGTH_FOR_FILTERING) {
             loaderManager.destroyLoader(LOADER_ID_FILTERING);
             return;
@@ -253,8 +268,31 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
         loaderManager.restartLoader(LOADER_ID_FILTERING, args, this);
     }
 
-    public void setCryptoProvider(String cryptoProvider) {
+    public void setCryptoProvider(@Nullable String cryptoProvider, boolean showAdvancedInfo) {
         this.cryptoProvider = cryptoProvider;
+        this.showAdvancedInfo = showAdvancedInfo;
+        adapter.setShowAdvancedInfo(showAdvancedInfo);
+        alternatesAdapter.setShowAdvancedInfo(showAdvancedInfo);
+    }
+
+    public void setShowCryptoEnabled(boolean showCryptoEnabled) {
+        this.showCryptoEnabled = showCryptoEnabled;
+
+        redrawAllTokens();
+    }
+
+    private void redrawAllTokens() {
+        Editable text = getText();
+        if (text == null) {
+            return;
+        }
+
+        RecipientTokenSpan[] recipientSpans = text.getSpans(0, text.length(), RecipientTokenSpan.class);
+        for (RecipientTokenSpan recipientSpan : recipientSpans) {
+            bindObjectView(recipientSpan.getToken(), recipientSpan.view);
+        }
+
+        invalidate();
     }
 
     public void addRecipients(Recipient... recipients) {
@@ -274,7 +312,7 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
     }
 
     private void showAlternates(Recipient recipient) {
-        if (!attachedToWindow) {
+        if (loaderManager == null) {
             return;
         }
 
@@ -296,7 +334,7 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
     }
 
     public void showAlternatesPopup(List<Recipient> data) {
-        if (!attachedToWindow) {
+        if (loaderManager == null) {
             return;
         }
 
@@ -315,6 +353,12 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
     }
 
     @Override
+    public boolean onKeyDown(int keyCode, @NonNull KeyEvent event) {
+        alternatesPopup.dismiss();
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
     public Loader<List<Recipient>> onCreateLoader(int id, Bundle args) {
         switch (id) {
             case LOADER_ID_FILTERING: {
@@ -327,8 +371,7 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
                 if (contactLookupUri != null) {
                     return new RecipientLoader(getContext(), cryptoProvider, contactLookupUri, true);
                 } else {
-                    String address = alternatesPopupRecipient.address.getAddress();
-                    return new RecipientLoader(getContext(), cryptoProvider, address);
+                    return new RecipientLoader(getContext(), cryptoProvider, alternatesPopupRecipient.address);
                 }
             }
         }
@@ -338,6 +381,10 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
 
     @Override
     public void onLoadFinished(Loader<List<Recipient>> loader, List<Recipient> data) {
+        if (loaderManager == null) {
+            return;
+        }
+
         switch (loader.getId()) {
             case LOADER_ID_FILTERING: {
                 adapter.setRecipients(data);
@@ -359,6 +406,21 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
         }
     }
 
+    public boolean tryPerformCompletion() {
+        if (!hasUncompletedText()) {
+            return false;
+        }
+        int previousNumRecipients = getTokenCount();
+        performCompletion();
+        int numRecipients = getTokenCount();
+
+        return previousNumRecipients != numRecipients;
+    }
+
+    private int getTokenCount() {
+        return getObjects().size();
+    }
+
     public boolean hasUncompletedText() {
         String currentCompletionText = currentCompletionText();
         return !TextUtils.isEmpty(currentCompletionText) && !isPlaceholderText(currentCompletionText);
@@ -376,8 +438,16 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
     }
 
     @Override
-    public void onRecipientChange(Recipient currentRecipient, Recipient alternateAddress) {
+    public void onRecipientChange(Recipient recipientToReplace, Recipient alternateAddress) {
         alternatesPopup.dismiss();
+
+        List<Recipient> currentRecipients = getObjects();
+        int indexOfRecipient = currentRecipients.indexOf(recipientToReplace);
+        if (indexOfRecipient == -1) {
+            Timber.e("Tried to refresh invalid view token!");
+            return;
+        }
+        Recipient currentRecipient = currentRecipients.get(indexOfRecipient);
 
         currentRecipient.address = alternateAddress.address;
         currentRecipient.addressLabel = alternateAddress.addressLabel;
@@ -385,7 +455,7 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
 
         View recipientTokenView = getTokenViewForRecipient(currentRecipient);
         if (recipientTokenView == null) {
-            Log.e(K9.LOG_TAG, "Tried to refresh invalid view token!");
+            Timber.e("Tried to refresh invalid view token!");
             return;
         }
 
@@ -425,7 +495,7 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
 
         RecipientTokenSpan[] recipientSpans = text.getSpans(0, text.length(), RecipientTokenSpan.class);
         for (RecipientTokenSpan recipientSpan : recipientSpans) {
-            if (recipientSpan.getToken() == currentRecipient) {
+            if (recipientSpan.getToken().equals(currentRecipient)) {
                 return recipientSpan.view;
             }
         }
@@ -448,10 +518,6 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
         UNAVAILABLE,
         AVAILABLE_UNTRUSTED,
         AVAILABLE_TRUSTED;
-
-        public boolean isAvailable() {
-            return this == AVAILABLE_TRUSTED || this == AVAILABLE_UNTRUSTED;
-        }
     }
 
     public interface TokenListener<T> extends TokenCompleteTextView.TokenListener<T> {
@@ -469,11 +535,14 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
     }
 
     private static class RecipientTokenViewHolder {
-        public final TextView vName;
-        public final ImageView vContactPhoto;
-        public final View cryptoStatusRed;
-        public final View cryptoStatusOrange;
-        public final View cryptoStatusGreen;
+        final TextView vName;
+        final ImageView vContactPhoto;
+        final View cryptoStatusRed;
+        final View cryptoStatusOrange;
+        final View cryptoStatusGreen;
+        final View cryptoStatusSimple;
+        final View cryptoStatusSimpleEnabled;
+        final View cryptoStatusSimpleError;
 
 
         RecipientTokenViewHolder(View view) {
@@ -482,6 +551,40 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
             cryptoStatusRed = view.findViewById(R.id.contact_crypto_status_red);
             cryptoStatusOrange = view.findViewById(R.id.contact_crypto_status_orange);
             cryptoStatusGreen = view.findViewById(R.id.contact_crypto_status_green);
+
+            cryptoStatusSimple = view.findViewById(R.id.contact_crypto_status_icon_simple);
+            cryptoStatusSimpleEnabled = view.findViewById(R.id.contact_crypto_status_icon_simple_enabled);
+            cryptoStatusSimpleError = view.findViewById(R.id.contact_crypto_status_icon_simple_error);
+        }
+
+        void showSimpleCryptoState(boolean isAvailable, boolean isShowEnabled) {
+            cryptoStatusRed.setVisibility(View.GONE);
+            cryptoStatusOrange.setVisibility(View.GONE);
+            cryptoStatusGreen.setVisibility(View.GONE);
+
+            cryptoStatusSimple.setVisibility(!isShowEnabled && isAvailable ? View.VISIBLE : View.GONE);
+            cryptoStatusSimpleEnabled.setVisibility(isShowEnabled && isAvailable ? View.VISIBLE : View.GONE);
+            cryptoStatusSimpleError.setVisibility(isShowEnabled && !isAvailable ? View.VISIBLE : View.GONE);
+        }
+
+        void showAdvancedCryptoState(boolean isAvailable, boolean isVerified) {
+            cryptoStatusRed.setVisibility(!isAvailable ? View.VISIBLE : View.GONE);
+            cryptoStatusOrange.setVisibility(isAvailable && !isVerified ? View.VISIBLE : View.GONE);
+            cryptoStatusGreen.setVisibility(isAvailable && isVerified ? View.VISIBLE : View.GONE);
+
+            cryptoStatusSimple.setVisibility(View.GONE);
+            cryptoStatusSimpleEnabled.setVisibility(View.GONE);
+            cryptoStatusSimpleError.setVisibility(View.GONE);
+        }
+
+        void hideCryptoState() {
+            cryptoStatusRed.setVisibility(View.GONE);
+            cryptoStatusOrange.setVisibility(View.GONE);
+            cryptoStatusGreen.setVisibility(View.GONE);
+
+            cryptoStatusSimple.setVisibility(View.GONE);
+            cryptoStatusSimpleEnabled.setVisibility(View.GONE);
+            cryptoStatusSimpleError.setVisibility(View.GONE);
         }
     }
 
@@ -494,6 +597,8 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
         public Address address;
 
         public String addressLabel;
+        public final int timesContacted;
+        public final String sortKey;
 
         @Nullable // null if the contact has no photo. transient because we serialize this manually, see below.
         public transient Uri photoThumbnailUri;
@@ -506,23 +611,37 @@ public class RecipientSelectView extends TokenCompleteTextView<Recipient> implem
             this.contactId = null;
             this.cryptoStatus = RecipientCryptoStatus.UNDEFINED;
             this.contactLookupKey = null;
+            timesContacted = 0;
+            sortKey = null;
         }
 
         public Recipient(String name, String email, String addressLabel, long contactId, String lookupKey) {
+            this(name, email, addressLabel, contactId, lookupKey, 0, null);
+        }
+
+        public Recipient(String name, String email, String addressLabel, long contactId, String lookupKey,
+                int timesContacted, String sortKey) {
             this.address = new Address(email, name);
             this.contactId = contactId;
             this.addressLabel = addressLabel;
             this.cryptoStatus = RecipientCryptoStatus.UNDEFINED;
             this.contactLookupKey = lookupKey;
+            this.timesContacted = timesContacted;
+            this.sortKey = sortKey;
         }
 
         public String getDisplayNameOrAddress() {
-            String displayName = getDisplayName();
+            final String displayName = K9.showCorrespondentNames() ? getDisplayName() : null;
+
             if (displayName != null) {
                 return displayName;
             }
 
             return address.getAddress();
+        }
+
+        public boolean isValidEmailAddress() {
+            return (address.getAddress() != null);
         }
 
         public String getDisplayNameOrUnknown(Context context) {

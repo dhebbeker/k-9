@@ -2,6 +2,8 @@ package com.fsck.k9.search;
 
 import java.util.List;
 
+import timber.log.Timber;
+
 import com.fsck.k9.Account;
 import com.fsck.k9.mail.MessagingException;
 import com.fsck.k9.mail.Folder;
@@ -29,8 +31,8 @@ public class SqlQueryBuilder {
             SearchCondition condition = node.mCondition;
             switch (condition.field) {
                 case FOLDER: {
-                    String folderName = condition.value;
-                    long folderId = getFolderId(account, folderName);
+                    String folderServerId = condition.value;
+                    long folderId = getFolderId(account, folderServerId);
                     if (condition.attribute == Attribute.EQUALS) {
                         query.append("folder_id = ?");
                     } else {
@@ -72,6 +74,15 @@ public class SqlQueryBuilder {
                     }
                     break;
                 }
+                case MESSAGE_CONTENTS: {
+                    String fulltextQueryString = condition.value;
+                    if (condition.attribute != Attribute.CONTAINS) {
+                        Timber.e("message contents can only be matched!");
+                    }
+                    query.append("m.id IN (SELECT docid FROM messages_fulltext WHERE fulltext MATCH ?)");
+                    selectionArgs.add(fulltextQueryString);
+                    break;
+                }
                 default: {
                     appendCondition(condition, query, selectionArgs);
                 }
@@ -93,13 +104,13 @@ public class SqlQueryBuilder {
         appendExprRight(condition, query, selectionArgs);
     }
 
-    private static long getFolderId(Account account, String folderName) {
+    private static long getFolderId(Account account, String folderServerId) {
         long folderId = 0;
         try {
             LocalStore localStore = account.getLocalStore();
-            LocalFolder folder = localStore.getFolder(folderName);
+            LocalFolder folder = localStore.getFolder(folderServerId);
             folder.open(Folder.OPEN_MODE_RO);
-            folderId = folder.getId();
+            folderId = folder.getDatabaseId();
         } catch (MessagingException e) {
             //FIXME
             e.printStackTrace();
@@ -138,9 +149,6 @@ public class SqlQueryBuilder {
             case ID: {
                 columnName = "id";
                 break;
-            }
-            case MESSAGE_CONTENTS: {
-                throw new RuntimeException("Searching in message bodies is currently not supported");
             }
             case REPLY_TO: {
                 columnName = "reply_to_list";
@@ -182,6 +190,7 @@ public class SqlQueryBuilder {
                 columnName = "threads.root";
                 break;
             }
+            case MESSAGE_CONTENTS:
             case FOLDER:
             case SEARCHABLE: {
                 // Special cases handled in buildWhereClauseInternal()

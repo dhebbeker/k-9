@@ -2,15 +2,15 @@ package com.fsck.k9.account;
 
 
 import com.fsck.k9.Account.DeletePolicy;
+import com.fsck.k9.RobolectricTest;
 import com.fsck.k9.mail.ConnectionSecurity;
-import com.fsck.k9.mail.ServerSettings;
 import com.fsck.k9.mail.ServerSettings.Type;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 
 
-public class AccountCreatorTest {
+public class AccountCreatorTest extends RobolectricTest {
 
     @Test
     public void getDefaultDeletePolicy_withImap_shouldReturn_ON_DELETE() {
@@ -31,6 +31,11 @@ public class AccountCreatorTest {
         DeletePolicy result = AccountCreator.getDefaultDeletePolicy(Type.WebDAV);
 
         assertEquals(DeletePolicy.ON_DELETE, result);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void getDefaultDeletePolicy_withSmtp_shouldFail() {
+        AccountCreator.getDefaultDeletePolicy(Type.SMTP);
     }
 
     @Test

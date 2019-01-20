@@ -1,11 +1,12 @@
 package com.fsck.k9.controller;
 
 import android.content.Context;
-import android.util.Log;
+
+import com.fsck.k9.mail.power.WakeLock;
+import timber.log.Timber;
 
 import com.fsck.k9.Account;
 import com.fsck.k9.K9;
-import com.fsck.k9.mail.power.TracingPowerManager.TracingWakeLock;
 import com.fsck.k9.mail.Folder;
 
 import com.fsck.k9.mail.Message;
@@ -28,48 +29,46 @@ public class MessagingControllerPushReceiver implements PushReceiver {
         this.context = context;
     }
 
-    public void messagesFlagsChanged(Folder folder,
-                                     List<Message> messages) {
-        controller.messagesArrived(account, folder, messages, true);
+    public void messagesFlagsChanged(Folder folder, List<Message> messages) {
+        syncFolder(folder);
     }
     public void messagesArrived(Folder folder, List<Message> messages) {
-        controller.messagesArrived(account, folder, messages, false);
+        syncFolder(folder);
     }
     public void messagesRemoved(Folder folder, List<Message> messages) {
-        controller.messagesArrived(account, folder, messages, true);
+        syncFolder(folder);
     }
 
     public void syncFolder(Folder folder) {
-        if (K9.DEBUG)
-            Log.v(K9.LOG_TAG, "syncFolder(" + folder.getName() + ")");
+        Timber.v("syncFolder(%s)", folder.getServerId());
+
         final CountDownLatch latch = new CountDownLatch(1);
-        controller.synchronizeMailbox(account, folder.getName(), new MessagingListener() {
+        controller.synchronizeMailbox(account, folder.getServerId(), new SimpleMessagingListener() {
             @Override
-            public void synchronizeMailboxFinished(Account account, String folder,
+            public void synchronizeMailboxFinished(Account account, String folderServerId,
             int totalMessagesInMailbox, int numNewMessages) {
                 latch.countDown();
             }
 
             @Override
-            public void synchronizeMailboxFailed(Account account, String folder,
+            public void synchronizeMailboxFailed(Account account, String folderServerId,
             String message) {
                 latch.countDown();
             }
         }, folder);
 
-        if (K9.DEBUG)
-            Log.v(K9.LOG_TAG, "syncFolder(" + folder.getName() + ") about to await latch release");
+        Timber.v("syncFolder(%s) about to await latch release", folder.getServerId());
+
         try {
             latch.await();
-            if (K9.DEBUG)
-                Log.v(K9.LOG_TAG, "syncFolder(" + folder.getName() + ") got latch release");
+            Timber.v("syncFolder(%s) got latch release", folder.getServerId());
         } catch (Exception e) {
-            Log.e(K9.LOG_TAG, "Interrupted while awaiting latch release", e);
+            Timber.e(e, "Interrupted while awaiting latch release");
         }
     }
 
     @Override
-    public void sleep(TracingWakeLock wakeLock, long millis) {
+    public void sleep(WakeLock wakeLock, long millis) {
         SleepService.sleep(context, millis, wakeLock, K9.PUSH_WAKE_LOCK_TIMEOUT);
     }
 
@@ -80,19 +79,23 @@ public class MessagingControllerPushReceiver implements PushReceiver {
         if (errMess == null && e != null) {
             errMess = e.getMessage();
         }
-        controller.addErrorMessage(account, errMess, e);
+        Timber.e(e, errMess);
     }
 
-    public String getPushState(String folderName) {
+    @Override
+    public void authenticationFailed() {
+        controller.handleAuthenticationFailure(account, true);
+    }
+
+    public String getPushState(String folderServerId) {
         LocalFolder localFolder = null;
         try {
             LocalStore localStore = account.getLocalStore();
-            localFolder = localStore.getFolder(folderName);
+            localFolder = localStore.getFolder(folderServerId);
             localFolder.open(Folder.OPEN_MODE_RW);
             return localFolder.getPushState();
         } catch (Exception e) {
-            Log.e(K9.LOG_TAG, "Unable to get push state from account " + account.getDescription()
-                  + ", folder " + folderName, e);
+            Timber.e(e, "Unable to get push state from account %s, folder %s", account.getDescription(), folderServerId);
             return null;
         } finally {
             if (localFolder != null) {
@@ -101,15 +104,9 @@ public class MessagingControllerPushReceiver implements PushReceiver {
         }
     }
 
-    public void setPushActive(String folderName, boolean enabled) {
+    public void setPushActive(String folderServerId, boolean enabled) {
         for (MessagingListener l : controller.getListeners()) {
-            l.setPushActive(account, folderName, enabled);
+            l.setPushActive(account, folderServerId, enabled);
         }
     }
-
-    @Override
-    public Context getContext() {
-        return context;
-    }
-
 }

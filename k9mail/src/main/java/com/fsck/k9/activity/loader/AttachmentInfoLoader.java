@@ -2,44 +2,51 @@ package com.fsck.k9.activity.loader;
 
 import java.io.File;
 
-import android.content.AsyncTaskLoader;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.OpenableColumns;
-import android.util.Log;
+import android.support.v4.content.AsyncTaskLoader;
 
-import com.fsck.k9.K9;
+import timber.log.Timber;
+
 import com.fsck.k9.activity.misc.Attachment;
+import com.fsck.k9.activity.misc.Attachment.LoadingState;
 import com.fsck.k9.mail.internet.MimeUtility;
 
 /**
  * Loader to fetch metadata of an attachment.
  */
 public class AttachmentInfoLoader  extends AsyncTaskLoader<Attachment> {
-    private final Attachment mAttachment;
+    private final Attachment sourceAttachment;
+    private Attachment cachedResultAttachment;
+
 
     public AttachmentInfoLoader(Context context, Attachment attachment) {
         super(context);
-        mAttachment = attachment;
+        if (attachment.state != LoadingState.URI_ONLY) {
+            throw new IllegalArgumentException("Attachment provided to metadata loader must be in URI_ONLY state");
+        }
+
+        sourceAttachment = attachment;
     }
 
     @Override
     protected void onStartLoading() {
-        if (mAttachment.state == Attachment.LoadingState.METADATA) {
-            deliverResult(mAttachment);
+        if (cachedResultAttachment != null) {
+            deliverResult(cachedResultAttachment);
         }
 
-        if (takeContentChanged() || mAttachment.state == Attachment.LoadingState.URI_ONLY) {
+        if (takeContentChanged() || cachedResultAttachment == null) {
             forceLoad();
         }
     }
 
     @Override
     public Attachment loadInBackground() {
-        Uri uri = mAttachment.uri;
-        String contentType = mAttachment.contentType;
+        Uri uri = sourceAttachment.uri;
+        String contentType = sourceAttachment.contentType;
 
         long size = -1;
         String name = null;
@@ -77,25 +84,24 @@ public class AttachmentInfoLoader  extends AsyncTaskLoader<Attachment> {
             usableContentType = MimeUtility.getMimeTypeByExtension(name);
         }
 
+        if (!sourceAttachment.allowMessageType && MimeUtility.isMessageType(usableContentType)) {
+            usableContentType = MimeUtility.DEFAULT_ATTACHMENT_MIME_TYPE;
+        }
+
         if (size <= 0) {
             String uriString = uri.toString();
             if (uriString.startsWith("file://")) {
-                Log.v(K9.LOG_TAG, uriString.substring("file://".length()));
                 File f = new File(uriString.substring("file://".length()));
                 size = f.length();
             } else {
-                Log.v(K9.LOG_TAG, "Not a file: " + uriString);
+                Timber.v("Not a file: %s", uriString);
             }
         } else {
-            Log.v(K9.LOG_TAG, "old attachment.size: " + size);
+            Timber.v("old attachment.size: %d", size);
         }
-        Log.v(K9.LOG_TAG, "new attachment.size: " + size);
+        Timber.v("new attachment.size: %d", size);
 
-        mAttachment.contentType = usableContentType;
-        mAttachment.name = name;
-        mAttachment.size = size;
-        mAttachment.state = Attachment.LoadingState.METADATA;
-
-        return mAttachment;
+        cachedResultAttachment = sourceAttachment.deriveWithMetadataLoaded(usableContentType, name, size);
+        return cachedResultAttachment;
     }
 }

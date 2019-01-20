@@ -14,8 +14,7 @@ K-9 Mail can be downloaded from a couple of sources:
 - [Github Releases](https://github.com/k9mail/k-9/releases)
 - [Amazon Appstore for Android](http://www.amazon.com/dp/B004JK61K0)
 
-You might also be interested in becoming a [beta tester](https://github.com/k9mail/k-9/wiki/BetaTester)
-or an [alpha tester](https://github.com/k9mail/k-9/wiki/AlphaTester) to get an early look at new versions.
+You might also be interested in becoming a [tester](https://play.google.com/apps/testing/com.fsck.k9) to get an early look at new versions.
 
 
 ## Release Notes
@@ -28,8 +27,8 @@ in each version of K-9 Mail.
 
 If the app is not behaving like it should, you might find these resources helpful:
 
-- [User Manual](https://github.com/k9mail/k-9/wiki/Manual)
-- [Frequently Asked Questions](https://github.com/k9mail/k-9/wiki/FrequentlyAskedQuestions)
+- [User Manual](https://k9mail.github.io/documentation.html)
+- [Frequently Asked Questions](https://k9mail.github.io/documentation/faq.html)
 - [Support Forum/Mailing List](http://groups.google.com/group/k-9-mail)
 - [Google+ Community](https://plus.google.com/communities/109228641058741937099)
 
@@ -39,6 +38,13 @@ If the app is not behaving like it should, you might find these resources helpfu
 Interested in helping to translate K-9 Mail? Contribute here:
 
 https://www.transifex.com/projects/p/k9mail/
+
+
+## Design
+
+A re-design is underway. You can contribute, view updates and access design files here: 
+
+https://github.com/k9mail/k-9-design
 
 
 ## Contributing

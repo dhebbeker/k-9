@@ -4,15 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import android.util.Log;
+import timber.log.Timber;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
 
-import com.fsck.k9.K9;
-
 /**
- * Filter to search for occurences of the search-expression in any place of the
- * folder-name instead of doing jsut a prefix-search.
+ * Filter to search for occurrences of the search-expression in any place of the
+ * folder-name instead of doing just a prefix-search.
  *
  * @author Marcus@Wolschon.biz
  */
@@ -34,10 +32,10 @@ public class FolderListFilter<T> extends Filter {
     /**
      * Create a filter for a list of folders.
      *
-     * @param folderNames
+     * @param folders
      */
-    public FolderListFilter(final ArrayAdapter<T> folderNames) {
-        this.mFolders = folderNames;
+    public FolderListFilter(final ArrayAdapter<T> folders) {
+        this.mFolders = folders;
     }
 
     /**
@@ -113,7 +111,7 @@ public class FolderListFilter<T> extends Filter {
                     }
                 }
             } else {
-                Log.w(K9.LOG_TAG, "FolderListFilter.publishResults - null search-result ");
+                Timber.w("FolderListFilter.publishResults - null search-result ");
             }
 
             // Send notification that the data set changed now

@@ -1,23 +1,31 @@
 
 package com.fsck.k9.activity.setup;
 
+
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.Spinner;
-import com.fsck.k9.*;
+
+import com.fsck.k9.Account;
+import com.fsck.k9.DI;
+import com.fsck.k9.K9;
+import com.fsck.k9.Preferences;
+import com.fsck.k9.R;
 import com.fsck.k9.activity.K9Activity;
-import com.fsck.k9.mail.Store;
+import com.fsck.k9.controller.MessagingController;
+
 
 public class AccountSetupOptions extends K9Activity implements OnClickListener {
     private static final String EXTRA_ACCOUNT = "account";
 
     private static final String EXTRA_MAKE_DEFAULT = "makeDefault";
+
+    private final MessagingController messagingController = DI.get(MessagingController.class);
 
     private Spinner mCheckFrequencyView;
 
@@ -110,15 +118,7 @@ public class AccountSetupOptions extends K9Activity implements OnClickListener {
                                             .getDisplayCount());
 
 
-        boolean isPushCapable = false;
-        try {
-            Store store = mAccount.getRemoteStore();
-            isPushCapable = store.isPushCapable();
-        } catch (Exception e) {
-            Log.e(K9.LOG_TAG, "Could not get remote store", e);
-        }
-
-
+        boolean isPushCapable = messagingController.isPushCapable(mAccount);
         if (!isPushCapable) {
             mPushEnable.setVisibility(View.GONE);
         } else {

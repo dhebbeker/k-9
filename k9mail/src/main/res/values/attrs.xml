@@ -3,6 +3,13 @@
 
     <declare-styleable name="K9Styles">
         <attr name="iconFolder" format="reference" />
+        <attr name="iconFolderInbox" format="reference" />
+        <attr name="iconFolderOutbox" format="reference" />
+        <attr name="iconFolderArchive" format="reference" />
+        <attr name="iconFolderDrafts" format="reference" />
+        <attr name="iconFolderSent" format="reference" />
+        <attr name="iconFolderSpam" format="reference" />
+        <attr name="iconFolderTrash" format="reference" />
         <attr name="iconListItemMenu" format="reference" />
         <attr name="iconMenuInfoDetails" format="reference" />
         <attr name="iconActionAddAttachment" format="reference" />
@@ -12,6 +19,7 @@
         <attr name="iconActionDelete" format="reference" />
         <attr name="iconActionMove" format="reference" />
         <attr name="iconActionCopy" format="reference" />
+        <attr name="iconActionNextStatus" format="reference" />
         <attr name="iconActionNextMessage" format="reference" />
         <attr name="iconActionPreviousMessage" format="reference" />
         <attr name="iconActionRefresh" format="reference" />
@@ -37,6 +45,13 @@
         <attr name="iconActionRequestReadReceipt" format="reference" />
         <attr name="iconActionExpand" format="reference" />
         <attr name="iconActionCollapse" format="reference" />
+        <attr name="iconPreferencesDisplay" format="reference" />
+        <attr name="iconPreferencesInteraction" format="reference" />
+        <attr name="iconPreferencesNotifications" format="reference" />
+        <attr name="iconPreferencesNetwork" format="reference" />
+        <attr name="iconPreferencesVarious" format="reference" />
+        <attr name="iconPreferencesPrivacy" format="reference" />
+        <attr name="iconPreferencesDebug" format="reference" />
         <attr name="textColorPrimaryRecipientDropdown" format="reference" />
         <attr name="textColorSecondaryRecipientDropdown" format="reference" />
         <attr name="backgroundColorChooseAccountHeader" format="color" />
@@ -53,6 +68,18 @@
         <attr name="messageComposeAddContactImage" format="reference"/>
         <attr name="composerBackgroundColor" format="color"/>
         <attr name="contactPictureFallbackDefaultBackgroundColor" format="reference|color"/>
+        <attr name="contactTokenBackgroundColor" format="reference|color"/>
+        <attr name="tintColorBulletPointPositive" format="reference|color"/>
+        <attr name="tintColorBulletPointNeutral" format="reference|color"/>
+        <attr name="tintColorBulletPointNegative" format="reference|color"/>
+
+        <attr name="openpgp_black" format="reference|color" />
+        <attr name="openpgp_orange" format="reference|color" />
+        <attr name="openpgp_red" format="reference|color" />
+        <attr name="openpgp_green" format="reference|color" />
+        <attr name="openpgp_blue" format="reference|color" />
+        <attr name="openpgp_grey" format="reference|color" />
+        <attr name="openpgp_dark_grey" format="reference|color" />
     </declare-styleable>
 
     <declare-styleable name="SliderPreference">
@@ -69,6 +96,15 @@
         <attr name="downOutAnimation" format="reference" />
         <attr name="upInAnimation" format="reference" />
         <attr name="upOutAnimation" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="ToolableViewAnimator">
+        <attr name="previewInitialChild" format="integer" />
+    </declare-styleable>
+
+    <declare-styleable name="AutocryptPreferEncryptPreference">
+        <attr name="summaryOn" format="string" />
+        <attr name="summaryOff" format="string" />
     </declare-styleable>
 
 </resources>

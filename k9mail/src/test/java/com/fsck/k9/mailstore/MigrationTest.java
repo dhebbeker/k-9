@@ -14,6 +14,7 @@ import android.database.sqlite.SQLiteDatabase;
 
 import com.fsck.k9.Account;
 import com.fsck.k9.K9;
+import com.fsck.k9.K9RobolectricTest;
 import com.fsck.k9.Preferences;
 import com.fsck.k9.mail.BodyPart;
 import com.fsck.k9.mail.FetchProfile;
@@ -26,17 +27,13 @@ import org.apache.james.mime4j.util.MimeUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.openintents.openpgp.util.OpenPgpUtils;
-import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLog;
 import org.robolectric.shadows.ShadowSQLiteConnection;
 
-@RunWith(RobolectricTestRunner.class)
-@Config(manifest = "src/main/AndroidManifest.xml", sdk = 21)
-public class MigrationTest {
+
+public class MigrationTest extends K9RobolectricTest {
 
     Account account;
     File databaseFile;
@@ -44,11 +41,11 @@ public class MigrationTest {
 
     @Before
     public void setUp() throws Exception {
-        K9.DEBUG = true;
+        K9.setDebug(true);
         ShadowLog.stream = System.out;
         ShadowSQLiteConnection.reset();
 
-        account = Preferences.getPreferences(RuntimeEnvironment.application).newAccount();
+        account = getNewAccount();
 
         StorageManager storageManager = StorageManager.getInstance(RuntimeEnvironment.application);
         databaseFile = storageManager.getDatabase(account.getUuid(), account.getLocalStorageProviderId());
@@ -165,7 +162,7 @@ public class MigrationTest {
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
         Assert.assertEquals("text/plain", msg.getMimeType());
-        Assert.assertEquals(2, msg.getId());
+        Assert.assertEquals(2, msg.getDatabaseId());
         Assert.assertEquals(13, msg.getHeaderNames().size());
         Assert.assertEquals(0, msg.getAttachmentCount());
 
@@ -231,7 +228,7 @@ public class MigrationTest {
         fp.add(FetchProfile.Item.BODY);
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
-        Assert.assertEquals(3, msg.getId());
+        Assert.assertEquals(3, msg.getDatabaseId());
         Assert.assertEquals(8, msg.getHeaderNames().size());
         Assert.assertEquals("multipart/mixed", msg.getMimeType());
         Assert.assertEquals(1, msg.getHeader(MimeHeader.HEADER_CONTENT_TYPE).length);
@@ -248,11 +245,9 @@ public class MigrationTest {
         LocalBodyPart attachmentPart = (LocalBodyPart) body.getBodyPart(1);
         Assert.assertEquals("image/png", attachmentPart.getMimeType());
         Assert.assertEquals("2", attachmentPart.getServerExtra());
-        Assert.assertEquals("k9small.png", attachmentPart.getDisplayName());
         Assert.assertEquals("attachment", MimeUtility.getHeaderParameter(attachmentPart.getDisposition(), null));
         Assert.assertEquals("k9small.png", MimeUtility.getHeaderParameter(attachmentPart.getDisposition(), "filename"));
         Assert.assertEquals("2250", MimeUtility.getHeaderParameter(attachmentPart.getDisposition(), "size"));
-        Assert.assertTrue(attachmentPart.isFirstClassAttachment());
 
         FileBackedBody attachmentBody = (FileBackedBody) attachmentPart.getBody();
         Assert.assertEquals(2250, attachmentBody.getSize());
@@ -305,7 +300,7 @@ public class MigrationTest {
         fp.add(FetchProfile.Item.BODY);
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
-        Assert.assertEquals(4, msg.getId());
+        Assert.assertEquals(4, msg.getDatabaseId());
         Assert.assertEquals(8, msg.getHeaderNames().size());
         Assert.assertEquals("multipart/mixed", msg.getMimeType());
         Assert.assertEquals(2, msg.getAttachmentCount());
@@ -364,7 +359,7 @@ public class MigrationTest {
         fp.add(FetchProfile.Item.BODY);
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
-        Assert.assertEquals(5, msg.getId());
+        Assert.assertEquals(5, msg.getDatabaseId());
         Assert.assertEquals(13, msg.getHeaderNames().size());
         Assert.assertEquals("multipart/encrypted", msg.getMimeType());
         Assert.assertEquals(2, msg.getAttachmentCount());
@@ -482,7 +477,7 @@ public class MigrationTest {
         fp.add(FetchProfile.Item.BODY);
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
-        Assert.assertEquals(6, msg.getId());
+        Assert.assertEquals(6, msg.getDatabaseId());
         Assert.assertEquals(12, msg.getHeaderNames().size());
         Assert.assertEquals("text/plain", msg.getMimeType());
         Assert.assertEquals(0, msg.getAttachmentCount());
@@ -569,7 +564,7 @@ public class MigrationTest {
         fp.add(FetchProfile.Item.BODY);
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
-        Assert.assertEquals(7, msg.getId());
+        Assert.assertEquals(7, msg.getDatabaseId());
         Assert.assertEquals(12, msg.getHeaderNames().size());
         Assert.assertEquals("text/plain", msg.getMimeType());
         Assert.assertEquals(0, msg.getAttachmentCount());
@@ -627,7 +622,7 @@ public class MigrationTest {
         fp.add(FetchProfile.Item.BODY);
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
-        Assert.assertEquals(8, msg.getId());
+        Assert.assertEquals(8, msg.getDatabaseId());
         Assert.assertEquals(9, msg.getHeaderNames().size());
         Assert.assertEquals("multipart/alternative", msg.getMimeType());
         Assert.assertEquals(0, msg.getAttachmentCount());
@@ -692,7 +687,7 @@ public class MigrationTest {
         fp.add(FetchProfile.Item.BODY);
         localStore.getFolder("dev").fetch(Collections.singletonList(msg), fp, null);
 
-        Assert.assertEquals(9, msg.getId());
+        Assert.assertEquals(9, msg.getDatabaseId());
         Assert.assertEquals(11, msg.getHeaderNames().size());
         Assert.assertEquals("multipart/mixed", msg.getMimeType());
         Assert.assertEquals(1, msg.getAttachmentCount());
@@ -720,4 +715,12 @@ public class MigrationTest {
         Assert.assertEquals(expectedFilesize, copied);
     }
 
+    private Account getNewAccount() {
+        Preferences preferences = Preferences.getPreferences(RuntimeEnvironment.application);
+
+        //FIXME: This is a hack to get Preferences into a state where it's safe to call newAccount()
+        preferences.loadAccounts();
+
+        return preferences.newAccount();
+    }
 }
