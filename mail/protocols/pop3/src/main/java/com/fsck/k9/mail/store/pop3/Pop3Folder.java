@@ -3,7 +3,6 @@ package com.fsck.k9.mail.store.pop3;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -111,7 +110,7 @@ public class Pop3Folder extends Folder<Pop3Message> {
     }
 
     @Override
-    public boolean create(FolderType type) throws MessagingException {
+    public boolean create() throws MessagingException {
         return false;
     }
 
@@ -138,7 +137,7 @@ public class Pop3Folder extends Folder<Pop3Message> {
     public Pop3Message getMessage(String uid) throws MessagingException {
         Pop3Message message = uidToMsgMap.get(uid);
         if (message == null) {
-            message = new Pop3Message(uid, this);
+            message = new Pop3Message(uid);
         }
         return message;
     }
@@ -215,7 +214,7 @@ public class Pop3Folder extends Folder<Pop3Message> {
                         return;
                     }
                     String msgUid = uidParts[2];
-                    message = new Pop3Message(msgUid, this);
+                    message = new Pop3Message(msgUid);
                     indexMessage(msgNum, message);
                 }
             }
@@ -256,7 +255,7 @@ public class Pop3Folder extends Folder<Pop3Message> {
                     if (msgNum >= start && msgNum <= end) {
                         Pop3Message message = msgNumToMsgMap.get(msgNum);
                         if (message == null) {
-                            message = new Pop3Message(msgUid, this);
+                            message = new Pop3Message(msgUid);
                             indexMessage(msgNum, message);
                         }
                     }
@@ -303,7 +302,7 @@ public class Pop3Folder extends Folder<Pop3Message> {
 
                     Pop3Message message = uidToMsgMap.get(msgUid);
                     if (message == null) {
-                        message = new Pop3Message(msgUid, this);
+                        message = new Pop3Message(msgUid);
                     }
                     indexMessage(msgNum, message);
                 }
@@ -524,15 +523,6 @@ public class Pop3Folder extends Folder<Pop3Message> {
     }
 
     @Override
-    public void delete(boolean recurse) throws MessagingException {
-    }
-
-    @Override
-    public void delete(List<? extends Message> msgs, String trashFolder) throws MessagingException {
-        setFlags(msgs, Collections.singleton(Flag.DELETED), true);
-    }
-
-    @Override
     public String getUidFromMessageId(String messageId) throws MessagingException {
         return null;
     }
@@ -565,10 +555,10 @@ public class Pop3Folder extends Folder<Pop3Message> {
 
             Integer msgNum = uidToMsgNumMap.get(message.getUid());
             if (msgNum == null) {
-                MessagingException me = new MessagingException("Could not delete message " + message.getUid()
-                        + " because no msgNum found; permanent error");
-                me.setPermanentFailure(true);
-                throw me;
+                throw new MessagingException(
+                        "Could not delete message " + message.getUid() + " because no msgNum found; permanent error",
+                        true
+                );
             }
             open(Folder.OPEN_MODE_RW);
             connection.executeSimpleCommand(String.format(DELE_COMMAND + " %s", msgNum));

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.fsck.k9.mail.AuthenticationFailedException;
+import com.fsck.k9.mail.CertificateValidationException;
 import com.fsck.k9.mail.Flag;
 import com.fsck.k9.mail.K9MailLib;
 import com.fsck.k9.mail.Message;
@@ -194,6 +195,12 @@ class ImapFolderPusher extends ImapFolder {
 
                     pushReceiver.authenticationFailed();
                     stop = true;
+                } catch (CertificateValidationException e) {
+                    reacquireWakeLockAndCleanUp();
+
+                    Timber.e(e, "Certificate check failed. Stopping ImapFolderPusher.");
+                    stop = true;
+                    pushReceiver.pushError("Push error for " + getServerId(), e);
                 } catch (Exception e) {
                     reacquireWakeLockAndCleanUp();
 
@@ -580,12 +587,12 @@ class ImapFolderPusher extends ImapFolder {
 
                     List<Message> messages = new ArrayList<>();
                     for (long uid = startUid; uid <= newUid; uid++) {
-                        ImapMessage message = new ImapMessage(Long.toString(uid), ImapFolderPusher.this);
+                        ImapMessage message = new ImapMessage(Long.toString(uid));
                         messages.add(message);
                     }
 
                     if (!messages.isEmpty()) {
-                        pushReceiver.messagesArrived(ImapFolderPusher.this, messages);
+                        pushReceiver.messagesArrived(getServerId(), messages);
                     }
                 }
             }
@@ -597,7 +604,7 @@ class ImapFolderPusher extends ImapFolder {
                 List<? extends Message> messageList = getMessages(messageSeqSet, true, null);
 
                 List<Message> messages = new ArrayList<>(messageList);
-                pushReceiver.messagesFlagsChanged(ImapFolderPusher.this, messages);
+                pushReceiver.messagesFlagsChanged(getServerId(), messages);
             } catch (Exception e) {
                 pushReceiver.pushError("Exception while processing Push untagged responses", e);
             }
@@ -619,10 +626,10 @@ class ImapFolderPusher extends ImapFolder {
                 }
 
                 for (String uid : removeUids) {
-                    ImapMessage message = new ImapMessage(uid, ImapFolderPusher.this);
+                    ImapMessage message = new ImapMessage(uid);
 
                     try {
-                        message.setFlagInternal(Flag.DELETED, true);
+                        message.setFlag(Flag.DELETED, true);
                     } catch (MessagingException me) {
                         Timber.e("Unable to set DELETED flag on message %s", message.getUid());
                     }
@@ -630,7 +637,7 @@ class ImapFolderPusher extends ImapFolder {
                     messages.add(message);
                 }
 
-                pushReceiver.messagesRemoved(ImapFolderPusher.this, messages);
+                pushReceiver.messagesRemoved(getServerId(), messages);
             } catch (Exception e) {
                 Timber.e("Cannot remove EXPUNGEd messages");
             }
@@ -643,7 +650,7 @@ class ImapFolderPusher extends ImapFolder {
                 throw new MessagingException("Message count = -1 for idling");
             }
 
-            pushReceiver.syncFolder(ImapFolderPusher.this);
+            pushReceiver.syncFolder(getServerId());
         }
 
         private void notifyMessagesArrived(long startUid, long uidNext) {
@@ -655,11 +662,11 @@ class ImapFolderPusher extends ImapFolder {
             List<Message> messages = new ArrayList<>(count);
 
             for (long uid = startUid; uid < uidNext; uid++) {
-                ImapMessage message = new ImapMessage(Long.toString(uid), ImapFolderPusher.this);
+                ImapMessage message = new ImapMessage(Long.toString(uid));
                 messages.add(message);
             }
 
-            pushReceiver.messagesArrived(ImapFolderPusher.this, messages);
+            pushReceiver.messagesArrived(getServerId(), messages);
         }
 
         private long getOldUidNext() {

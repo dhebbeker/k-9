@@ -13,10 +13,11 @@ public class MessagingControllerCommands {
     static final String COMMAND_APPEND = "append";
     static final String COMMAND_MARK_ALL_AS_READ = "mark_all_as_read";
     static final String COMMAND_SET_FLAG = "set_flag";
+    static final String COMMAND_DELETE = "delete";
     static final String COMMAND_EXPUNGE = "expunge";
     static final String COMMAND_MOVE_OR_COPY = "move_or_copy";
+    static final String COMMAND_MOVE_AND_MARK_AS_READ = "move_and_mark_as_read";
     static final String COMMAND_EMPTY_TRASH = "empty_trash";
-
 
     public abstract static class PendingCommand {
         public long databaseId;
@@ -62,6 +63,41 @@ public class MessagingControllerCommands {
         @Override
         public void execute(MessagingController controller, Account account) throws MessagingException {
             controller.processPendingMoveOrCopy(this, account);
+        }
+    }
+
+    public static class PendingMoveAndMarkAsRead extends PendingCommand {
+        public final String srcFolder;
+        public final String destFolder;
+        public final List<String> uids;
+        public final Map<String, String> newUidMap;
+
+
+        public static PendingMoveAndMarkAsRead create(String srcFolder, String destFolder,
+                                                      Map<String, String> uidMap) {
+            return new PendingMoveAndMarkAsRead(srcFolder, destFolder, null, uidMap);
+        }
+
+        public static PendingMoveAndMarkAsRead create(String srcFolder, String destFolder, List<String> uids) {
+            return new PendingMoveAndMarkAsRead(srcFolder, destFolder, uids, null);
+        }
+
+        private PendingMoveAndMarkAsRead(String srcFolder, String destFolder, List<String> uids,
+                                         Map<String, String> newUidMap) {
+            this.srcFolder = srcFolder;
+            this.destFolder = destFolder;
+            this.uids = uids;
+            this.newUidMap = newUidMap;
+        }
+
+        @Override
+        public String getCommandName() {
+            return COMMAND_MOVE_AND_MARK_AS_READ;
+        }
+
+        @Override
+        public void execute(MessagingController controller, Account account) throws MessagingException {
+            controller.processPendingMoveAndRead(this, account);
         }
     }
 
@@ -155,6 +191,31 @@ public class MessagingControllerCommands {
         @Override
         public void execute(MessagingController controller, Account account) throws MessagingException {
             controller.processPendingMarkAllAsRead(this, account);
+        }
+    }
+
+    public static class PendingDelete extends PendingCommand {
+        public final String folder;
+        public final List<String> uids;
+
+
+        public static PendingDelete create(String folder, List<String> uids) {
+            return new PendingDelete(folder, uids);
+        }
+
+        private PendingDelete(String folder, List<String> uids) {
+            this.folder = folder;
+            this.uids = uids;
+        }
+
+        @Override
+        public String getCommandName() {
+            return COMMAND_DELETE;
+        }
+
+        @Override
+        public void execute(MessagingController controller, Account account) throws MessagingException {
+            controller.processPendingDelete(this, account);
         }
     }
 

@@ -692,6 +692,30 @@ public class ImapConnectionTest {
     }
 
     @Test
+    public void open_withUntaggedCapabilityAfterStartTls_shouldNotThrow() throws Exception {
+        settings.setAuthType(AuthType.PLAIN);
+        settings.setConnectionSecurity(ConnectionSecurity.STARTTLS_REQUIRED);
+        MockImapServer server = new MockImapServer();
+        preAuthenticationDialog(server, "STARTTLS LOGINDISABLED");
+        server.expect("2 STARTTLS");
+        server.output("2 OK Begin TLS negotiation now");
+        server.startTls();
+        server.output("* CAPABILITY IMAP4REV1 IMAP4");
+        server.expect("3 CAPABILITY");
+        server.output("* CAPABILITY IMAP4 IMAP4REV1");
+        server.output("3 OK");
+        server.expect("4 LOGIN \"" + USERNAME + "\" \"" + PASSWORD + "\"");
+        server.output("4 OK [CAPABILITY IMAP4REV1] LOGIN completed");
+        simplePostAuthenticationDialog(server, 5);
+        ImapConnection imapConnection = startServerAndCreateImapConnection(server);
+
+        imapConnection.open();
+
+        server.verifyConnectionStillOpen();
+        server.verifyInteractionCompleted();
+    }
+
+    @Test
     public void open_withNegativeResponseToStartTlsCommand_shouldThrow() throws Exception {
         settings.setAuthType(AuthType.PLAIN);
         settings.setConnectionSecurity(ConnectionSecurity.STARTTLS_REQUIRED);
@@ -931,6 +955,19 @@ public class ImapConnectionTest {
         } catch (NegativeImapResponseException e) {
             assertEquals("Folder exists", e.getLastResponse().getString(1));
         }
+        server.verifyConnectionStillOpen();
+        server.verifyInteractionCompleted();
+    }
+
+    @Test
+    public void hasCapability_withNotYetOpenedConnection_shouldConnectAndFetchCapabilities() throws Exception {
+        MockImapServer server = new MockImapServer();
+        simpleOpenDialog(server, "X-SOMETHING");
+        ImapConnection imapConnection = startServerAndCreateImapConnection(server);
+
+        boolean capabilityPresent = imapConnection.hasCapability("X-SOMETHING");
+
+        assertTrue(capabilityPresent);
         server.verifyConnectionStillOpen();
         server.verifyInteractionCompleted();
     }

@@ -1,16 +1,15 @@
 package com.fsck.k9.ui.settings
 
-import android.support.v14.preference.MultiSelectListPreference
-import android.support.v7.preference.ListPreference
-import android.support.v7.preference.Preference
-
+import androidx.preference.ListPreference
+import androidx.preference.MultiSelectListPreference
+import androidx.preference.Preference
 
 inline fun Preference.onClick(crossinline action: () -> Unit) = setOnPreferenceClickListener {
     action()
     true
 }
 
-fun Preference.remove() = parent?.removePreference(this)
+fun Preference?.remove() = this?.parent?.removePreference(this)
 
 fun ListPreference.removeEntry(entryValue: String) {
     val deleteIndex = entryValues.indexOf(entryValue)

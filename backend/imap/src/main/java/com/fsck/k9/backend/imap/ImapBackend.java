@@ -1,6 +1,7 @@
 package com.fsck.k9.backend.imap;
 
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,7 +13,6 @@ import com.fsck.k9.backend.api.SyncListener;
 import com.fsck.k9.mail.BodyFactory;
 import com.fsck.k9.mail.FetchProfile;
 import com.fsck.k9.mail.Flag;
-import com.fsck.k9.mail.Folder;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mail.MessagingException;
 import com.fsck.k9.mail.Part;
@@ -103,14 +103,18 @@ public class ImapBackend implements Backend {
     }
 
     @Override
+    public boolean isDeleteMoveToTrash() {
+        return true;
+    }
+
+    @Override
     public void refreshFolderList() {
         commandRefreshFolderList.refreshFolderList();
     }
 
     @Override
-    public void sync(@NotNull String folder, @NotNull SyncConfig syncConfig, @NotNull SyncListener listener,
-            Folder providedRemoteFolder) {
-        imapSync.sync(folder, syncConfig, listener, providedRemoteFolder);
+    public void sync(@NotNull String folder, @NotNull SyncConfig syncConfig, @NotNull SyncListener listener) {
+        imapSync.sync(folder, syncConfig, listener);
     }
 
     @Override
@@ -142,6 +146,12 @@ public class ImapBackend implements Backend {
     }
 
     @Override
+    public void deleteMessages(@NotNull String folderServerId, @NotNull List<String> messageServerIds)
+            throws MessagingException {
+        commandSetFlag.setFlag(folderServerId, messageServerIds, Flag.DELETED, true);
+    }
+
+    @Override
     public void deleteAllMessages(@NotNull String folderServerId) throws MessagingException {
         commandDeleteAll.deleteAll(folderServerId);
     }
@@ -151,6 +161,18 @@ public class ImapBackend implements Backend {
     public Map<String, String> moveMessages(@NotNull String sourceFolderServerId, @NotNull String targetFolderServerId,
             @NotNull List<String> messageServerIds) throws MessagingException {
         return commandMoveOrCopyMessages.moveMessages(sourceFolderServerId, targetFolderServerId, messageServerIds);
+    }
+
+    @Nullable
+    @Override
+    public Map<String, String> moveMessagesAndMarkAsRead(@NotNull String sourceFolderServerId,
+             @NotNull String targetFolderServerId, @NotNull List<String> messageServerIds) throws MessagingException {
+        Map<String, String> uidMapping = commandMoveOrCopyMessages
+                .moveMessages(sourceFolderServerId, targetFolderServerId, messageServerIds);
+        if (uidMapping != null) {
+            setFlag(targetFolderServerId, new ArrayList<>(uidMapping.values()), Flag.SEEN, true);
+        }
+        return uidMapping;
     }
 
     @Nullable

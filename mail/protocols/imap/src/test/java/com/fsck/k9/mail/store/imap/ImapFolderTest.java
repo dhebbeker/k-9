@@ -17,7 +17,6 @@ import com.fsck.k9.mail.FetchProfile;
 import com.fsck.k9.mail.FetchProfile.Item;
 import com.fsck.k9.mail.Flag;
 import com.fsck.k9.mail.Folder;
-import com.fsck.k9.mail.Folder.FolderType;
 import com.fsck.k9.mail.K9LibRobolectricTestRunner;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mail.MessageRetrievalListener;
@@ -259,7 +258,7 @@ public class ImapFolderTest {
         ImapFolder imapFolder = createFolder("Folder");
         when(imapStore.getConnection()).thenReturn(imapConnection);
 
-        imapFolder.create(FolderType.HOLDS_MESSAGES);
+        imapFolder.create();
 
         verify(imapConnection).executeSimpleCommand("CREATE \"Folder\"");
     }
@@ -269,7 +268,7 @@ public class ImapFolderTest {
         ImapFolder imapFolder = createFolder("Folder");
         when(imapStore.getConnection()).thenReturn(imapConnection);
 
-        boolean success = imapFolder.create(FolderType.HOLDS_MESSAGES);
+        boolean success = imapFolder.create();
 
         assertTrue(success);
     }
@@ -280,7 +279,7 @@ public class ImapFolderTest {
         when(imapStore.getConnection()).thenReturn(imapConnection);
         doThrow(NegativeImapResponseException.class).when(imapConnection).executeSimpleCommand("CREATE \"Folder\"");
 
-        boolean success = imapFolder.create(FolderType.HOLDS_MESSAGES);
+        boolean success = imapFolder.create();
 
         assertFalse(success);
     }
@@ -378,66 +377,6 @@ public class ImapFolderTest {
         Map<String, String> uidMapping = sourceFolder.moveMessages(messages, destinationFolder);
 
         assertNull(uidMapping);
-    }
-
-    @Test
-    public void delete_withEmptyMessageList_shouldNotInteractWithImapConnection() throws Exception {
-        ImapFolder folder = createFolder("Source");
-        List<ImapMessage> messages = Collections.emptyList();
-
-        folder.delete(messages, "Trash");
-
-        verifyNoMoreInteractions(imapConnection);
-    }
-
-    @Test
-    public void delete_fromTrashFolder_shouldIssueUidStoreFlagsCommand() throws Exception {
-        ImapFolder folder = createFolder("Folder");
-        prepareImapFolderForOpen(OPEN_MODE_RW);
-        List<ImapMessage> messages = singletonList(createImapMessage("23"));
-        folder.open(OPEN_MODE_RW);
-
-        folder.delete(messages, "Folder");
-
-        assertCommandWithIdsIssued("UID STORE 23 +FLAGS.SILENT (\\Deleted)");
-    }
-
-    @Test
-    public void delete_shouldMoveMessagesToTrashFolder() throws Exception {
-        ImapFolder folder = createFolder("Folder");
-        prepareImapFolderForOpen(OPEN_MODE_RW);
-        ImapFolder trashFolder = createFolder("Trash");
-        when(imapStore.getFolder("Trash")).thenReturn(trashFolder);
-        List<ImapMessage> messages = singletonList(createImapMessage("2"));
-        setupCopyResponse("x OK [COPYUID 23 2 102] Success");
-        folder.open(OPEN_MODE_RW);
-
-        folder.delete(messages, "Trash");
-
-        assertCommandWithIdsIssued("UID STORE 2 +FLAGS.SILENT (\\Deleted)");
-    }
-
-    @Test
-    public void delete_withoutTrashFolderExisting_shouldThrow() throws Exception {
-        ImapFolder folder = createFolder("Folder");
-        prepareImapFolderForOpen(OPEN_MODE_RW);
-        ImapFolder trashFolder = createFolder("Trash");
-        when(imapStore.getFolder("Trash")).thenReturn(trashFolder);
-        List<ImapMessage> messages = singletonList(createImapMessage("2"));
-        List<ImapResponse> copyResponses = singletonList(
-                createImapResponse("x OK [COPYUID 23 2 102] Success")
-        );
-        when(imapConnection.executeSimpleCommand("UID COPY 2 \"Trash\"")).thenReturn(copyResponses);
-        folder.open(OPEN_MODE_RW);
-        doThrow(NegativeImapResponseException.class).doReturn(Collections.emptyList())
-                .when(imapConnection).executeSimpleCommand("STATUS \"Trash\" (RECENT)");
-
-        try {
-            folder.delete(messages, "Trash");
-            fail("Expected exception");
-        } catch (FolderNotFoundException e) {
-            assertEquals("Trash", e.getFolderServerId());
-        }
     }
 
     @Test
@@ -912,7 +851,7 @@ public class ImapFolderTest {
         folder.fetch(messages, fetchProfile, null);
 
         ImapMessage imapMessage = messages.get(0);
-        verify(imapMessage).setFlagInternal(Flag.SEEN, true);
+        verify(imapMessage).setFlag(Flag.SEEN, true);
     }
 
     @Test
@@ -1068,7 +1007,7 @@ public class ImapFolderTest {
     public void search_withFullTextSearchEnabled_shouldIssueRespectiveCommand() throws Exception {
         ImapFolder folder = createFolder("Folder");
         prepareImapFolderForOpen(OPEN_MODE_RO);
-        when(storeConfig.allowRemoteSearch()).thenReturn(true);
+        when(storeConfig.isAllowRemoteSearch()).thenReturn(true);
         when(storeConfig.isRemoteSearchFullText()).thenReturn(true);
         setupUidSearchResponses("1 OK SEARCH completed");
 
@@ -1081,7 +1020,7 @@ public class ImapFolderTest {
     public void search_withFullTextSearchDisabled_shouldIssueRespectiveCommand() throws Exception {
         ImapFolder folder = createFolder("Folder");
         prepareImapFolderForOpen(OPEN_MODE_RO);
-        when(storeConfig.allowRemoteSearch()).thenReturn(true);
+        when(storeConfig.isAllowRemoteSearch()).thenReturn(true);
         when(storeConfig.isRemoteSearchFullText()).thenReturn(false);
         setupUidSearchResponses("1 OK SEARCH completed");
 
@@ -1093,7 +1032,7 @@ public class ImapFolderTest {
     @Test
     public void search_withRemoteSearchDisabled_shouldThrow() throws Exception {
         ImapFolder folder = createFolder("Folder");
-        when(storeConfig.allowRemoteSearch()).thenReturn(false);
+        when(storeConfig.isAllowRemoteSearch()).thenReturn(false);
 
         try {
             folder.search("query", Collections.<Flag>emptySet(), Collections.<Flag>emptySet());
@@ -1103,21 +1042,13 @@ public class ImapFolderTest {
         }
     }
 
-    @Test(expected = Error.class)
-    public void delete_notImplemented() throws Exception {
-        ImapFolder folder = createFolder("Folder");
-
-        folder.delete(false);
-    }
-
     @Test
-    public void getMessageByUid_returnsNewImapMessageWithUidInFolder() throws Exception {
+    public void getMessageByUid_returnsNewImapMessageWithUid() throws Exception {
         ImapFolder folder = createFolder("Folder");
 
         ImapMessage message = folder.getMessage("uid");
 
         assertEquals("uid", message.getUid());
-        assertEquals(folder, message.getFolder());
     }
 
     private Part createPlainTextPart(String serverExtra) {

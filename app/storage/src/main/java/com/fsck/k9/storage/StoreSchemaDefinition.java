@@ -3,8 +3,8 @@ package com.fsck.k9.storage;
 
 import android.database.sqlite.SQLiteDatabase;
 
-import com.fsck.k9.core.BuildConfig;
-import com.fsck.k9.mail.Folder;
+import com.fsck.k9.K9;
+import com.fsck.k9.mail.FolderClass;
 import com.fsck.k9.mailstore.LockableDatabase.SchemaDefinition;
 import com.fsck.k9.mailstore.MigrationsHelper;
 import com.fsck.k9.storage.migrations.Migrations;
@@ -12,7 +12,7 @@ import timber.log.Timber;
 
 
 class StoreSchemaDefinition implements SchemaDefinition {
-    static final int DB_VERSION = 66;
+    static final int DB_VERSION = 69;
 
     private final MigrationsHelper migrationsHelper;
 
@@ -31,7 +31,7 @@ class StoreSchemaDefinition implements SchemaDefinition {
         try {
             upgradeDatabase(db);
         } catch (Exception e) {
-            if (BuildConfig.DEBUG) {
+            if (K9.DEVELOPER_MODE) {
                 throw new Error("Exception while upgrading database", e);
             }
 
@@ -46,6 +46,13 @@ class StoreSchemaDefinition implements SchemaDefinition {
 
         db.beginTransaction();
         try {
+            if (db.getVersion() > DB_VERSION) {
+                String accountUuid = migrationsHelper.getAccount().getUuid();
+                throw new AssertionError("Database downgrades are not supported. " +
+                        "Please fix the account database '" + accountUuid + "' manually or " +
+                        "clear app data.");
+            }
+
             // schema version 29 was when we moved to incremental updates
             // in the case of a new db or a < v29 db, we blow away and start from scratch
             if (db.getVersion() < 29) {
@@ -90,10 +97,11 @@ class StoreSchemaDefinition implements SchemaDefinition {
                 "poll_class TEXT, " +
                 "push_class TEXT, " +
                 "display_class TEXT, " +
-                "notify_class TEXT default '"+ Folder.FolderClass.INHERITED.name() + "', " +
+                "notify_class TEXT default '"+ FolderClass.INHERITED.name() + "', " +
                 "more_messages TEXT default \"unknown\", " +
-                "server_id TEXT," +
-                "local_only INTEGER" +
+                "server_id TEXT, " +
+                "local_only INTEGER, " +
+                "type TEXT DEFAULT \"regular\"" +
                 ")");
 
         db.execSQL("DROP INDEX IF EXISTS folder_server_id");
@@ -207,6 +215,14 @@ class StoreSchemaDefinition implements SchemaDefinition {
                 "BEGIN " +
                 "UPDATE threads SET root=id WHERE root IS NULL AND ROWID = NEW.ROWID; " +
                 "END");
+
+        db.execSQL("DROP TABLE IF EXISTS outbox_state");
+        db.execSQL("CREATE TABLE outbox_state (" +
+                "message_id INTEGER PRIMARY KEY NOT NULL REFERENCES messages(id) ON DELETE CASCADE," +
+                "send_state TEXT," +
+                "number_of_send_attempts INTEGER DEFAULT 0," +
+                "error_timestamp INTEGER DEFAULT 0," +
+                "error TEXT)");
 
         db.execSQL("DROP TABLE IF EXISTS pending_commands");
         db.execSQL("CREATE TABLE pending_commands " +

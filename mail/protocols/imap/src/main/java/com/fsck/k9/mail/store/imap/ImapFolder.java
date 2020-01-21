@@ -287,7 +287,7 @@ public class ImapFolder extends Folder<ImapMessage> {
     }
 
     @Override
-    public boolean create(FolderType type) throws MessagingException {
+    public boolean create() throws MessagingException {
         /*
          * This method needs to operate in the unselected mode as well as the selected mode
          * so we must get the connection ourselves if it's not there. We are specifically
@@ -391,36 +391,6 @@ public class ImapFolder extends Folder<ImapMessage> {
     }
 
     @Override
-    public void delete(List<? extends Message> messages, String trashFolder) throws MessagingException {
-        if (messages.isEmpty()) {
-            return;
-        }
-
-        if (trashFolder == null || getServerId().equals(trashFolder)) {
-            setFlags(messages, Collections.singleton(Flag.DELETED), true);
-        } else {
-            ImapFolder remoteTrashFolder = getStore().getFolder(trashFolder);
-            String encodedTrashFolderName = folderNameCodec.encode(remoteTrashFolder.getPrefixedName());
-            String escapedTrashFolderName = ImapUtility.encodeString(encodedTrashFolderName);
-
-            if (!exists(escapedTrashFolderName)) {
-                if (K9MailLib.isDebug()) {
-                    Timber.i("ImapFolder.delete: couldn't find remote trash folder '%s' for %s",
-                            trashFolder, getLogId());
-                }
-                throw new FolderNotFoundException(remoteTrashFolder.getServerId());
-            }
-
-            if (K9MailLib.isDebug()) {
-                Timber.d("IMAPMessage.delete: copying remote %d messages to '%s' for %s",
-                        messages.size(), trashFolder, getLogId());
-            }
-
-            moveMessages(messages, remoteTrashFolder);
-        }
-    }
-
-    @Override
     public int getMessageCount() {
         return messageCount;
     }
@@ -486,13 +456,8 @@ public class ImapFolder extends Folder<ImapMessage> {
     }
 
     @Override
-    public void delete(boolean recurse) throws MessagingException {
-        throw new Error("ImapFolder.delete() not yet implemented");
-    }
-
-    @Override
     public ImapMessage getMessage(String uid) throws MessagingException {
-        return new ImapMessage(uid, this);
+        return new ImapMessage(uid);
     }
 
     @Override
@@ -622,7 +587,7 @@ public class ImapFolder extends Folder<ImapMessage> {
                 listener.messageStarted(uid, i, count);
             }
 
-            ImapMessage message = new ImapMessage(uid, this);
+            ImapMessage message = new ImapMessage(uid);
             messages.add(message);
 
             if (listener != null) {
@@ -852,19 +817,19 @@ public class ImapFolder extends Folder<ImapMessage> {
                 for (int i = 0, count = flags.size(); i < count; i++) {
                     String flag = flags.getString(i);
                     if (flag.equalsIgnoreCase("\\Deleted")) {
-                        message.setFlagInternal(Flag.DELETED, true);
+                        message.setFlag(Flag.DELETED, true);
                     } else if (flag.equalsIgnoreCase("\\Answered")) {
-                        message.setFlagInternal(Flag.ANSWERED, true);
+                        message.setFlag(Flag.ANSWERED, true);
                     } else if (flag.equalsIgnoreCase("\\Seen")) {
-                        message.setFlagInternal(Flag.SEEN, true);
+                        message.setFlag(Flag.SEEN, true);
                     } else if (flag.equalsIgnoreCase("\\Flagged")) {
-                        message.setFlagInternal(Flag.FLAGGED, true);
+                        message.setFlag(Flag.FLAGGED, true);
                     } else if (flag.equalsIgnoreCase("$Forwarded")) {
-                        message.setFlagInternal(Flag.FORWARDED, true);
+                        message.setFlag(Flag.FORWARDED, true);
                         /* a message contains FORWARDED FLAG -> so we can also create them */
                         store.getPermanentFlagsIndex().add(Flag.FORWARDED);
                     } else if (flag.equalsIgnoreCase("\\Draft")){
-                        message.setFlagInternal(Flag.DRAFT, true);
+                        message.setFlag(Flag.DRAFT, true);
                     }
                 }
             }
@@ -1399,7 +1364,7 @@ public class ImapFolder extends Folder<ImapMessage> {
     public List<ImapMessage> search(final String queryString, final Set<Flag> requiredFlags,
             final Set<Flag> forbiddenFlags) throws MessagingException {
 
-        if (!store.getStoreConfig().allowRemoteSearch()) {
+        if (!store.getStoreConfig().isAllowRemoteSearch()) {
             throw new MessagingException("Your settings do not allow remote searching of this account");
         }
 

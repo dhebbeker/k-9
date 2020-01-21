@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import com.fsck.k9.Account;
 import com.fsck.k9.K9RobolectricTest;
 import com.fsck.k9.Preferences;
 import com.fsck.k9.mail.AuthType;
@@ -18,9 +17,9 @@ import org.robolectric.RuntimeEnvironment;
 import static com.fsck.k9.preferences.MessagingControllerTestExtra.setUpBackendManager;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 
-@SuppressWarnings("unchecked")
 public class SettingsImporterTest extends K9RobolectricTest {
 
     @Before
@@ -32,9 +31,7 @@ public class SettingsImporterTest extends K9RobolectricTest {
 
     private void deletePreExistingAccounts() {
         Preferences preferences = Preferences.getPreferences(RuntimeEnvironment.application);
-        for (Account account : preferences.getAccounts()) {
-            preferences.deleteAccount(account);
-        }
+        preferences.clearAccounts();
     }
 
     @Test(expected = SettingsImportExportException.class)
@@ -174,6 +171,8 @@ public class SettingsImporterTest extends K9RobolectricTest {
         assertEquals(1, results.importedAccounts.size());
         assertEquals("Account", results.importedAccounts.get(0).imported.name);
         assertEquals(validUUID, results.importedAccounts.get(0).imported.uuid);
+        assertTrue(results.importedAccounts.get(0).incomingPasswordNeeded);
+        assertTrue(results.importedAccounts.get(0).outgoingPasswordNeeded);
 
         assertFalse(Preferences.getPreferences(RuntimeEnvironment.application)
                 .getAccount(validUUID).isEnabled());

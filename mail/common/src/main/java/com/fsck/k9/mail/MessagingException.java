@@ -6,6 +6,10 @@ public class MessagingException extends Exception {
 
     private boolean permanentFailure = false;
 
+    public MessagingException(Throwable cause) {
+        super(cause);
+    }
+
     public MessagingException(String message) {
         super(message);
     }
@@ -26,11 +30,6 @@ public class MessagingException extends Exception {
 
     public boolean isPermanentFailure() {
         return permanentFailure;
-    }
-
-    //TODO setters in Exception are bad style, remove (it's nearly unused anyway)
-    public void setPermanentFailure(boolean permanentFailure) {
-        this.permanentFailure = permanentFailure;
     }
 
 }

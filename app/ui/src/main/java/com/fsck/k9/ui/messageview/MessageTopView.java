@@ -8,7 +8,8 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
+import androidx.appcompat.widget.PopupMenu.OnMenuItemClickListener;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -65,7 +66,6 @@ public class MessageTopView extends LinearLayout {
         super.onFinishInflate();
 
         mHeaderContainer = findViewById(R.id.header_container);
-        // mHeaderContainer.setOnLayoutChangedListener(this);
         mInflater = LayoutInflater.from(getContext());
 
         viewAnimator = findViewById(R.id.message_layout_animator);
@@ -118,7 +118,7 @@ public class MessageTopView extends LinearLayout {
                 containerView, false);
         containerView.addView(view);
 
-        boolean hideUnsignedTextDivider = account.getOpenPgpHideSignOnly();
+        boolean hideUnsignedTextDivider = account.isOpenPgpHideSignOnly();
         view.displayMessageViewContainer(messageViewInfo, new OnRenderingFinishedListener() {
             @Override
             public void onLoadFinished() {
@@ -217,6 +217,10 @@ public class MessageTopView extends LinearLayout {
 
     public void setOnToggleFlagClickListener(OnClickListener listener) {
         mHeaderContainer.setOnFlagListener(listener);
+    }
+
+    public void setOnMenuItemClickListener(OnMenuItemClickListener listener) {
+        mHeaderContainer.setOnMenuItemClickListener(listener);
     }
 
     public void showAllHeaders() {

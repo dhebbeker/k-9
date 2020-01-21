@@ -1,20 +1,19 @@
 package com.fsck.k9.mailstore;
 
+
 import java.io.File;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
-import android.os.Build;
-import timber.log.Timber;
 
 import com.fsck.k9.K9;
 import com.fsck.k9.helper.FileHelper;
 import com.fsck.k9.mail.MessagingException;
+import timber.log.Timber;
 
 import static java.lang.System.currentTimeMillis;
 
@@ -265,7 +264,7 @@ public class LockableDatabase {
         lockRead();
         final boolean doTransaction = transactional && inTransaction.get() == null;
         try {
-            final boolean debug = K9.isDebug();
+            final boolean debug = K9.isDebugLoggingEnabled();
             if (doTransaction) {
                 inTransaction.set(Boolean.TRUE);
                 mDb.beginTransaction();
@@ -311,6 +310,8 @@ public class LockableDatabase {
             Timber.v("LockableDatabase: Ignoring provider switch request as they are equal: %s", newProviderId);
             return;
         }
+
+        Timber.v("LockableDatabase: Switching provider from %s to %s", mStorageProviderId, newProviderId);
 
         final String oldProviderId = mStorageProviderId;
         lockWrite(oldProviderId);
@@ -378,6 +379,9 @@ public class LockableDatabase {
                 }
                 doOpenOrCreateDb(databaseFile);
             }
+
+            mDb.execSQL("PRAGMA foreign_keys = ON;");
+
             if (mDb.getVersion() != mSchemaDefinition.getVersion()) {
                 mSchemaDefinition.doDbUpgrade(mDb);
             }
@@ -499,15 +503,8 @@ public class LockableDatabase {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private void deleteDatabase(File database) {
-        boolean deleted;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            deleted = SQLiteDatabase.deleteDatabase(database);
-        } else {
-            deleted = database.delete();
-            deleted |= new File(database.getPath() + "-journal").delete();
-        }
+        boolean deleted = SQLiteDatabase.deleteDatabase(database);
         if (!deleted) {
             Timber.i("LockableDatabase: deleteDatabase(): No files deleted.");
         }

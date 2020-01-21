@@ -1,29 +1,39 @@
 package com.fsck.k9.activity;
 
 
-import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.Lifecycle.State;
-import android.arch.lifecycle.LifecycleOwner;
-import android.arch.lifecycle.LifecycleRegistry;
 import android.os.Bundle;
 import android.preference.ListPreference;
 import android.preference.Preference;
-import android.preference.PreferenceActivity;
-import android.support.annotation.NonNull;
+import android.view.MenuItem;
 
-import com.fsck.k9.K9;
+import androidx.annotation.NonNull;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.Lifecycle.State;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.LifecycleRegistry;
 
+public abstract class K9PreferenceActivity extends AppCompatPreferenceActivity implements LifecycleOwner {
+    private final K9ActivityCommon base = new K9ActivityCommon(this, ThemeType.ACTION_BAR);
 
-public abstract class K9PreferenceActivity extends PreferenceActivity implements LifecycleOwner {
     private LifecycleRegistry lifecycleRegistry;
 
     @Override
     public void onCreate(Bundle icicle) {
-        K9ActivityCommon.setLanguage(this, K9.getK9Language());
-        setTheme(K9ActivityCommon.getK9ThemeResourceId());
+        base.preOnCreate();
         super.onCreate(icicle);
         lifecycleRegistry = new LifecycleRegistry(this);
         lifecycleRegistry.markState(State.CREATED);
+
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            onBackPressed();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -34,6 +44,7 @@ public abstract class K9PreferenceActivity extends PreferenceActivity implements
 
     @Override
     protected void onResume() {
+        base.preOnResume();
         super.onResume();
         lifecycleRegistry.markState(State.RESUMED);
     }

@@ -3,8 +3,8 @@ package com.fsck.k9.view;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import timber.log.Timber;
 import android.view.KeyEvent;
@@ -14,13 +14,11 @@ import android.webkit.WebSettings.RenderPriority;
 import android.webkit.WebView;
 import android.widget.Toast;
 
-import com.fsck.k9.K9;
-import com.fsck.k9.K9.Theme;
 import com.fsck.k9.ui.R;
 import com.fsck.k9.mailstore.AttachmentResolver;
 
 
-public class MessageWebView extends RigidWebView {
+public class MessageWebView extends WebView {
 
     public MessageWebView(Context context) {
         super(context);
@@ -56,21 +54,19 @@ public class MessageWebView extends RigidWebView {
      * preferences when configuring the view. This message is used to view a message and to display a message being
      * replied to.
      */
-    public void configure() {
+    public void configure(WebViewConfig config) {
         this.setVerticalScrollBarEnabled(true);
         this.setVerticalScrollbarOverlay(true);
         this.setScrollBarStyle(SCROLLBARS_INSIDE_OVERLAY);
         this.setLongClickable(true);
 
-        if (K9.getK9MessageViewTheme() == Theme.DARK) {
+        if (config.getUseDarkMode()) {
             // Black theme should get a black webview background
             // we'll set the background of the messages on load
             this.setBackgroundColor(0xff000000);
         }
 
         final WebSettings webSettings = this.getSettings();
-
-        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
         /* TODO this might improve rendering smoothness when webview is animated into view
         if (VERSION.SDK_INT >= VERSION_CODES.M) {
@@ -81,7 +77,7 @@ public class MessageWebView extends RigidWebView {
         webSettings.setSupportZoom(true);
         webSettings.setBuiltInZoomControls(true);
         webSettings.setUseWideViewPort(true);
-        if (K9.autofitWidth()) {
+        if (config.getAutoFitWidth()) {
             webSettings.setLoadWithOverviewMode(true);
         }
 
@@ -96,7 +92,7 @@ public class MessageWebView extends RigidWebView {
 
         setOverScrollMode(OVER_SCROLL_NEVER);
 
-        webSettings.setTextZoom(K9.getFontSizes().getMessageViewContentAsPercent());
+        webSettings.setTextZoom(config.getTextZoom());
 
         // Disable network images by default.  This is overridden by preferences.
         blockNetworkData(true);

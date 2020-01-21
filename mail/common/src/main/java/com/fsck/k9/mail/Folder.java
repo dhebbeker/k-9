@@ -11,20 +11,10 @@ import timber.log.Timber;
 
 public abstract class Folder<T extends Message> {
     private String status = null;
-    private long lastChecked = 0;
-    private long lastPush = 0;
+    private FolderType type = FolderType.REGULAR;
 
     public static final int OPEN_MODE_RW=0;
     public static final int OPEN_MODE_RO=1;
-
-    // NONE is obsolete, it will be translated to NO_CLASS for display and to INHERITED for sync and push
-    public enum FolderClass {
-        NONE, NO_CLASS, INHERITED, FIRST_CLASS, SECOND_CLASS
-    }
-
-    public enum FolderType {
-        HOLDS_FOLDERS, HOLDS_MESSAGES,
-    }
 
     /**
      * Forces an open of the MailProvider. If the provider is already open this
@@ -53,7 +43,7 @@ public abstract class Folder<T extends Message> {
      */
     public abstract int getMode();
 
-    public abstract boolean create(FolderType type) throws MessagingException;
+    public abstract boolean create() throws MessagingException;
 
     public abstract boolean exists() throws MessagingException;
 
@@ -91,13 +81,6 @@ public abstract class Folder<T extends Message> {
         return null;
     }
 
-    public void delete(List<? extends Message> msgs, String trashFolder) throws MessagingException {
-        for (Message message : msgs) {
-            Message myMessage = getMessage(message.getUid());
-            myMessage.delete(trashFolder);
-        }
-    }
-
     public abstract void setFlags(List<? extends Message> messages, Set<Flag> flags, boolean value)
     throws MessagingException;
 
@@ -130,8 +113,6 @@ public abstract class Folder<T extends Message> {
         Timber.d("fetchPart() not implemented.");
     }
 
-    public abstract void delete(boolean recurse) throws MessagingException;
-
     public abstract String getServerId();
 
     public abstract String getName();
@@ -158,26 +139,6 @@ public abstract class Folder<T extends Message> {
         return getServerId();
     }
 
-    public long getLastChecked() {
-        return lastChecked;
-    }
-
-    public void setLastChecked(long lastChecked) throws MessagingException {
-        this.lastChecked = lastChecked;
-    }
-
-    public long getLastPush() {
-        return lastPush;
-    }
-
-    public void setLastPush(long lastCheckedDisplay) throws MessagingException {
-        this.lastPush = lastCheckedDisplay;
-    }
-
-    public long getLastUpdate() {
-        return Math.max(getLastChecked(), getLastPush());
-    }
-
     public FolderClass getDisplayClass() {
         return FolderClass.NO_CLASS;
     }
@@ -187,10 +148,6 @@ public abstract class Folder<T extends Message> {
     }
     public FolderClass getPushClass() {
         return getSyncClass();
-    }
-
-    public boolean isInTopGroup() {
-        return false;
     }
 
     public String getStatus() {
@@ -204,5 +161,13 @@ public abstract class Folder<T extends Message> {
     public List<T> search(String queryString, final Set<Flag> requiredFlags, final Set<Flag> forbiddenFlags)
         throws MessagingException {
         throw new MessagingException("K-9 does not support searches on this folder type");
+    }
+
+    public FolderType getType() {
+        return type;
+    }
+
+    public void setType(FolderType type) {
+        this.type = type;
     }
 }

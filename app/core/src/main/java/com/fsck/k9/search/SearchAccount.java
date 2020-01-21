@@ -13,20 +13,7 @@ import com.fsck.k9.search.SearchSpecification.SearchField;
  * an account. This is a meta-account containing all the email that matches the search.
  */
 public class SearchAccount implements BaseAccount {
-    public static final String ALL_MESSAGES = "all_messages";
     public static final String UNIFIED_INBOX = "unified_inbox";
-
-
-    // create the all messages search ( all accounts is default when none specified )
-    public static SearchAccount createAllMessagesAccount() {
-        CoreResourceProvider resourceProvider = DI.get(CoreResourceProvider.class);
-        String name = resourceProvider.searchAllMessagesTitle();
-
-        LocalSearch tmpSearch = new LocalSearch(name);
-        tmpSearch.and(SearchField.SEARCHABLE, "1", Attribute.EQUALS);
-
-        return new SearchAccount(ALL_MESSAGES, tmpSearch, name, resourceProvider.searchAllMessagesDetail());
-    }
 
 
     // create the unified inbox meta account ( all accounts is default when none specified )
@@ -34,6 +21,7 @@ public class SearchAccount implements BaseAccount {
         CoreResourceProvider resourceProvider = DI.get(CoreResourceProvider.class);
         String name = resourceProvider.searchUnifiedInboxTitle();
         LocalSearch tmpSearch = new LocalSearch(name);
+        tmpSearch.setId(UNIFIED_INBOX);
         tmpSearch.and(SearchField.INTEGRATE, "1", Attribute.EQUALS);
         return new SearchAccount(UNIFIED_INBOX, tmpSearch, name, resourceProvider.searchUnifiedInboxDetail());
     }

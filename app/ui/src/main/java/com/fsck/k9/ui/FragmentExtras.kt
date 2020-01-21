@@ -1,9 +1,9 @@
 package com.fsck.k9.ui
 
-import android.support.v4.app.Fragment
-import android.support.v4.app.FragmentActivity
-import android.support.v4.app.FragmentTransaction
 import androidx.core.os.bundleOf
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
+import androidx.fragment.app.FragmentTransaction
 
 inline fun FragmentActivity.fragmentTransaction(crossinline block: FragmentTransaction.() -> Unit) {
     with(supportFragmentManager.beginTransaction()) {
@@ -13,8 +13,8 @@ inline fun FragmentActivity.fragmentTransaction(crossinline block: FragmentTrans
 }
 
 inline fun FragmentActivity.fragmentTransactionWithBackStack(
-        name: String? = null,
-        crossinline block: FragmentTransaction.() -> Unit
+    name: String? = null,
+    crossinline block: FragmentTransaction.() -> Unit
 ) {
     fragmentTransaction {
         block()

@@ -1,8 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'org.jetbrains.kotlin.android'
-
-apply from: "${rootProject.projectDir}/gradle/plugins/checkstyle-android.gradle"
-apply from: "${rootProject.projectDir}/gradle/plugins/findbugs-android.gradle"
+apply plugin: 'org.jlleitschuh.gradle.ktlint'
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${versions.kotlin}"
@@ -14,10 +12,11 @@ dependencies {
     implementation "org.apache.james:apache-mime4j-core:${versions.mime4j}"
 
     testImplementation project(':mail:testing')
+    testImplementation project(':app:testing')
     testImplementation "org.robolectric:robolectric:${versions.robolectric}"
     testImplementation "junit:junit:${versions.junit}"
     testImplementation "org.mockito:mockito-core:${versions.mockito}"
-    testImplementation "com.nhaarman:mockito-kotlin:${versions.mockitoKotlin}"
+    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:${versions.mockitoKotlin}"
     testImplementation "org.koin:koin-test:${versions.koin}"
     testImplementation "commons-io:commons-io:${versions.commonsIo}"
 }
@@ -28,8 +27,7 @@ android {
 
     defaultConfig {
         minSdkVersion buildConfig.minSdk
-        // For Robolectric tests
-        targetSdkVersion 22
+        targetSdkVersion buildConfig.robolectricSdk
     }
 
     lintOptions {
@@ -38,8 +36,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility javaVersion
+        targetCompatibility javaVersion
+    }
+
+    kotlinOptions {
+        jvmTarget = kotlinJvmVersion
     }
 
     testOptions {

@@ -104,11 +104,6 @@ public class WebDavFolder extends Folder<WebDavMessage> {
         return null;
     }
 
-    @Override
-    public void delete(List<? extends Message> msgs, String trashFolder) throws MessagingException {
-        moveOrCopyMessages(msgs, trashFolder, true);
-    }
-
     private void moveOrCopyMessages(List<? extends Message> messages, String folderName, boolean isMove)
             throws MessagingException {
         String[] uids = new String[messages.size()];
@@ -217,13 +212,8 @@ public class WebDavFolder extends Folder<WebDavMessage> {
     }
 
     @Override
-    public boolean create(FolderType type) throws MessagingException {
+    public boolean create() throws MessagingException {
         return true;
-    }
-
-    @Override
-    public void delete(boolean recursive) throws MessagingException {
-        throw new Error("WebDavFolder.delete() not implemeneted");
     }
 
     @Override
@@ -497,7 +487,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
             WebDavMessage wdMessage = (WebDavMessage) messages.get(i);
 
             try {
-                wdMessage.setFlagInternal(Flag.SEEN, uidToReadStatus.get(wdMessage.getUid()));
+                wdMessage.setFlag(Flag.SEEN, uidToReadStatus.get(wdMessage.getUid()));
             } catch (NullPointerException e) {
                 Timber.v(e, "Under some weird circumstances, " +
                         "setting the read status when syncing from webdav threw an NPE. Skipping.");
@@ -560,7 +550,7 @@ public class WebDavFolder extends Folder<WebDavMessage> {
             ParsedMessageEnvelope envelope = envelopes.get(message.getUid());
             if (envelope != null) {
                 message.setNewHeaders(envelope);
-                message.setFlagInternal(Flag.SEEN, envelope.getReadStatus());
+                message.setFlag(Flag.SEEN, envelope.getReadStatus());
             } else {
                 Timber.e("Asked to get metadata for a non-existent message: %s", message.getUid());
             }

@@ -12,13 +12,12 @@ import com.fsck.k9.search.SearchAccount;
 public class LauncherShortcuts extends AccountList {
     @Override
     public void onCreate(Bundle icicle) {
+        super.onCreate(icicle);
+
         // finish() immediately if we aren't supposed to be here
         if (!Intent.ACTION_CREATE_SHORTCUT.equals(getIntent().getAction())) {
             finish();
-            return;
         }
-
-        super.onCreate(icicle);
     }
 
     @Override
@@ -28,13 +27,12 @@ public class LauncherShortcuts extends AccountList {
 
     @Override
     protected void onAccountSelected(BaseAccount account) {
-        Intent shortcutIntent = null;
-
+        Intent shortcutIntent;
         if (account instanceof SearchAccount) {
             SearchAccount searchAccount = (SearchAccount) account;
             shortcutIntent = MessageList.shortcutIntent(this, searchAccount.getId());
         } else {
-            shortcutIntent = FolderList.actionHandleAccountIntent(this, (Account) account, true);
+            shortcutIntent = MessageList.shortcutIntentForAccount(this, (Account) account);
         }
 
         Intent intent = new Intent();
@@ -44,7 +42,7 @@ public class LauncherShortcuts extends AccountList {
             description = account.getEmail();
         }
         intent.putExtra(Intent.EXTRA_SHORTCUT_NAME, description);
-        Parcelable iconResource = Intent.ShortcutIconResource.fromContext(this, R.drawable.icon);
+        Parcelable iconResource = Intent.ShortcutIconResource.fromContext(this, R.mipmap.icon);
         intent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
 
         setResult(RESULT_OK, intent);

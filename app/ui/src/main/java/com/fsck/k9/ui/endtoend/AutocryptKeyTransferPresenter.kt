@@ -1,25 +1,24 @@
 package com.fsck.k9.ui.endtoend
 
-
 import android.app.PendingIntent
-import android.arch.lifecycle.LifecycleOwner
-import android.arch.lifecycle.Observer
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import com.fsck.k9.Account
 import com.fsck.k9.Preferences
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.openintents.openpgp.OpenPgpApiManager
 import org.openintents.openpgp.OpenPgpApiManager.OpenPgpApiManagerCallback
 import org.openintents.openpgp.OpenPgpApiManager.OpenPgpProviderError
 import timber.log.Timber
 
-
 class AutocryptKeyTransferPresenter internal constructor(
-        lifecycleOwner: LifecycleOwner,
-        private val openPgpApiManager: OpenPgpApiManager,
-        private val preferences: Preferences,
-        private val viewModel: AutocryptKeyTransferViewModel,
-        private val view: AutocryptKeyTransferActivity
+    lifecycleOwner: LifecycleOwner,
+    private val openPgpApiManager: OpenPgpApiManager,
+    private val preferences: Preferences,
+    private val viewModel: AutocryptKeyTransferViewModel,
+    private val view: AutocryptKeyTransferActivity
 ) {
 
     private lateinit var account: Account
@@ -50,7 +49,7 @@ class AutocryptKeyTransferPresenter internal constructor(
             }
         })
 
-        view.setAddress(account.identities[0].email)
+        view.setAddress(account.identities[0].email!!)
 
         viewModel.autocryptSetupTransferLiveEvent.recall()
     }
@@ -62,7 +61,7 @@ class AutocryptKeyTransferPresenter internal constructor(
     fun onClickTransferSend() {
         view.sceneGeneratingAndSending()
 
-        launch(UI) {
+        GlobalScope.launch(Dispatchers.Main) {
             view.uxDelay()
             view.setLoadingStateGenerating()
 

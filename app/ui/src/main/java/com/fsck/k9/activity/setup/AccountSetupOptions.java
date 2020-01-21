@@ -13,11 +13,9 @@ import android.widget.Spinner;
 
 import com.fsck.k9.Account;
 import com.fsck.k9.Core;
-import com.fsck.k9.DI;
 import com.fsck.k9.Preferences;
 import com.fsck.k9.ui.R;
 import com.fsck.k9.activity.K9Activity;
-import com.fsck.k9.controller.MessagingController;
 
 
 public class AccountSetupOptions extends K9Activity implements OnClickListener {
@@ -25,16 +23,12 @@ public class AccountSetupOptions extends K9Activity implements OnClickListener {
 
     private static final String EXTRA_MAKE_DEFAULT = "makeDefault";
 
-    private final MessagingController messagingController = DI.get(MessagingController.class);
-
     private Spinner mCheckFrequencyView;
 
     private Spinner mDisplayCountView;
 
 
     private CheckBox mNotifyView;
-    private CheckBox mNotifySyncView;
-    private CheckBox mPushEnable;
 
     private Account mAccount;
 
@@ -48,25 +42,17 @@ public class AccountSetupOptions extends K9Activity implements OnClickListener {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.account_setup_options);
+        setLayout(R.layout.account_setup_options);
 
         mCheckFrequencyView = findViewById(R.id.account_check_frequency);
         mDisplayCountView = findViewById(R.id.account_display_count);
         mNotifyView = findViewById(R.id.account_notify);
-        mNotifySyncView = findViewById(R.id.account_notify_sync);
-        mPushEnable = findViewById(R.id.account_enable_push);
 
         findViewById(R.id.next).setOnClickListener(this);
 
         SpinnerOption checkFrequencies[] = {
             new SpinnerOption(-1,
             getString(R.string.account_setup_options_mail_check_frequency_never)),
-            new SpinnerOption(1,
-            getString(R.string.account_setup_options_mail_check_frequency_1min)),
-            new SpinnerOption(5,
-            getString(R.string.account_setup_options_mail_check_frequency_5min)),
-            new SpinnerOption(10,
-            getString(R.string.account_setup_options_mail_check_frequency_10min)),
             new SpinnerOption(15,
             getString(R.string.account_setup_options_mail_check_frequency_15min)),
             new SpinnerOption(30,
@@ -111,39 +97,23 @@ public class AccountSetupOptions extends K9Activity implements OnClickListener {
         mAccount = Preferences.getPreferences(this).getAccount(accountUuid);
 
         mNotifyView.setChecked(mAccount.isNotifyNewMail());
-        mNotifySyncView.setChecked(mAccount.isShowOngoing());
         SpinnerOption.setSpinnerOptionValue(mCheckFrequencyView, mAccount
                                             .getAutomaticCheckIntervalMinutes());
         SpinnerOption.setSpinnerOptionValue(mDisplayCountView, mAccount
                                             .getDisplayCount());
-
-
-        boolean isPushCapable = messagingController.isPushCapable(mAccount);
-        if (!isPushCapable) {
-            mPushEnable.setVisibility(View.GONE);
-        } else {
-            mPushEnable.setChecked(true);
-        }
-
-
     }
 
     private void onDone() {
         mAccount.setDescription(mAccount.getEmail());
         mAccount.setNotifyNewMail(mNotifyView.isChecked());
-        mAccount.setShowOngoing(mNotifySyncView.isChecked());
         mAccount.setAutomaticCheckIntervalMinutes((Integer)((SpinnerOption)mCheckFrequencyView
                 .getSelectedItem()).value);
         mAccount.setDisplayCount((Integer)((SpinnerOption)mDisplayCountView
                                            .getSelectedItem()).value);
 
-        if (mPushEnable.isChecked()) {
-            mAccount.setFolderPushMode(Account.FolderMode.FIRST_CLASS);
-        } else {
-            mAccount.setFolderPushMode(Account.FolderMode.NONE);
-        }
+        mAccount.setFolderPushMode(Account.FolderMode.NONE);
 
-        mAccount.save(Preferences.getPreferences(this));
+        Preferences.getPreferences(getApplicationContext()).saveAccount(mAccount);
         if (mAccount.equals(Preferences.getPreferences(this).getDefaultAccount()) ||
                 getIntent().getBooleanExtra(EXTRA_MAKE_DEFAULT, false)) {
             Preferences.getPreferences(this).setDefaultAccount(mAccount);

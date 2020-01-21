@@ -2,11 +2,11 @@ package com.fsck.k9.notification;
 
 
 import android.app.PendingIntent;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.fsck.k9.Account;
-import com.fsck.k9.mail.Folder;
+import com.fsck.k9.mailstore.LocalFolder;
 
 import static com.fsck.k9.notification.NotificationHelper.NOTIFICATION_LED_BLINK_FAST;
 
@@ -21,7 +21,7 @@ class SyncNotifications {
 
 
     public SyncNotifications(NotificationHelper notificationHelper, NotificationActionCreator actionBuilder,
-            NotificationResourceProvider resourceProvider) {
+                             NotificationResourceProvider resourceProvider) {
         this.notificationHelper = notificationHelper;
         this.actionBuilder = actionBuilder;
         this.resourceProvider = resourceProvider;
@@ -37,7 +37,8 @@ class SyncNotifications {
         PendingIntent showMessageListPendingIntent = actionBuilder.createViewFolderPendingIntent(
                 account, outboxFolder, notificationId);
 
-        NotificationCompat.Builder builder = notificationHelper.createNotificationBuilder()
+        NotificationCompat.Builder builder = notificationHelper.createNotificationBuilder(account,
+                NotificationChannelManager.ChannelType.MISCELLANEOUS)
                 .setSmallIcon(resourceProvider.getIconSendingMail())
                 .setWhen(System.currentTimeMillis())
                 .setOngoing(true)
@@ -61,7 +62,7 @@ class SyncNotifications {
         getNotificationManager().cancel(notificationId);
     }
 
-    public void showFetchingMailNotification(Account account, Folder folder) {
+    public void showFetchingMailNotification(Account account, LocalFolder folder) {
         String accountName = account.getDescription();
         String folderServerId = folder.getServerId();
         String folderName = folder.getName();
@@ -75,7 +76,8 @@ class SyncNotifications {
         PendingIntent showMessageListPendingIntent = actionBuilder.createViewFolderPendingIntent(
                 account, folderServerId, notificationId);
 
-        NotificationCompat.Builder builder = notificationHelper.createNotificationBuilder()
+        NotificationCompat.Builder builder = notificationHelper.createNotificationBuilder(account,
+                NotificationChannelManager.ChannelType.MISCELLANEOUS)
                 .setSmallIcon(resourceProvider.getIconCheckingMail())
                 .setWhen(System.currentTimeMillis())
                 .setOngoing(true)

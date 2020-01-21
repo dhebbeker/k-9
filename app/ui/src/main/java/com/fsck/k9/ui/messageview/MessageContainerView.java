@@ -4,6 +4,7 @@ package com.fsck.k9.ui.messageview;
 import java.util.HashMap;
 import java.util.Map;
 
+import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -25,21 +26,25 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.fsck.k9.DI;
+import com.fsck.k9.message.html.DisplayHtml;
 import com.fsck.k9.ui.R;
 import com.fsck.k9.helper.ClipboardManager;
 import com.fsck.k9.helper.Contacts;
-import com.fsck.k9.message.html.HtmlConverter;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.Address;
 import com.fsck.k9.mailstore.AttachmentResolver;
 import com.fsck.k9.mailstore.AttachmentViewInfo;
 import com.fsck.k9.mailstore.MessageViewInfo;
-import com.fsck.k9.view.MessageHeader.OnLayoutChangedListener;
+import com.fsck.k9.ui.helper.DisplayHtmlUiFactory;
 import com.fsck.k9.view.MessageWebView;
 import com.fsck.k9.view.MessageWebView.OnPageFinishedListener;
+import com.fsck.k9.view.WebViewConfigProvider;
+
+import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
 
 
-public class MessageContainerView extends LinearLayout implements OnLayoutChangedListener, OnCreateContextMenuListener {
+public class MessageContainerView extends LinearLayout implements OnCreateContextMenuListener {
     private static final int MENU_ITEM_LINK_VIEW = Menu.FIRST;
     private static final int MENU_ITEM_LINK_SHARE = Menu.FIRST + 1;
     private static final int MENU_ITEM_LINK_COPY = Menu.FIRST + 2;
@@ -56,6 +61,10 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
     private static final int MENU_ITEM_EMAIL_SAVE = Menu.FIRST + 1;
     private static final int MENU_ITEM_EMAIL_COPY = Menu.FIRST + 2;
 
+    private final DisplayHtml displayHtml = DI.get(DisplayHtmlUiFactory.class).createForMessageView();
+    private final WebViewConfigProvider webViewConfigProvider = DI.get(WebViewConfigProvider.class);
+    private final ClipboardManager clipboardManager = DI.get(ClipboardManager.class);
+
     private MessageWebView mMessageContentView;
     private LinearLayout mAttachments;
     private View unsignedTextContainer;
@@ -66,7 +75,6 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
     private boolean showingPictures;
     private LayoutInflater mInflater;
     private AttachmentViewCallback attachmentCallback;
-    private ClipboardManager mClipboardManager;
     private Map<AttachmentViewInfo, AttachmentView> attachmentViewMap = new HashMap<>();
     private Map<Uri, AttachmentViewInfo> attachments = new HashMap<>();
     private boolean hasHiddenExternalImages;
@@ -81,7 +89,7 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
 
         mMessageContentView = findViewById(R.id.message_content);
         if (!isInEditMode()) {
-            mMessageContentView.configure();
+            mMessageContentView.configure(webViewConfigProvider.createForMessageView());
         }
         mMessageContentView.setOnCreateContextMenuListener(this);
         mMessageContentView.setVisibility(View.VISIBLE);
@@ -97,7 +105,6 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
 
         Context context = getContext();
         mInflater = LayoutInflater.from(context);
-        mClipboardManager = ClipboardManager.getInstance(context);
     }
 
     @Override
@@ -136,7 +143,7 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
                             case MENU_ITEM_LINK_COPY: {
                                 String label = getContext().getString(
                                         R.string.webview_contextmenu_link_clipboard_label);
-                                mClipboardManager.setText(label, url);
+                                clipboardManager.setText(label, url);
                                 break;
                             }
                         }
@@ -187,15 +194,14 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
                                 if (inlineImage) {
                                     attachmentCallback.onSaveAttachment(attachmentViewInfo);
                                 } else {
-                                    //TODO: Use download manager
-                                    new DownloadImageTask(getContext()).execute(uri.toString());
+                                    downloadImage(uri);
                                 }
                                 break;
                             }
                             case MENU_ITEM_IMAGE_COPY: {
                                 String label = getContext().getString(
                                         R.string.webview_contextmenu_image_clipboard_label);
-                                mClipboardManager.setText(label, uri.toString());
+                                clipboardManager.setText(label, uri.toString());
                                 break;
                             }
                         }
@@ -244,7 +250,7 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
                             case MENU_ITEM_PHONE_COPY: {
                                 String label = getContext().getString(
                                         R.string.webview_contextmenu_phone_clipboard_label);
-                                mClipboardManager.setText(label, phoneNumber);
+                                clipboardManager.setText(label, phoneNumber);
                                 break;
                             }
                         }
@@ -289,7 +295,7 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
                             case MENU_ITEM_EMAIL_COPY: {
                                 String label = getContext().getString(
                                         R.string.webview_contextmenu_email_clipboard_label);
-                                mClipboardManager.setText(label, email);
+                                clipboardManager.setText(label, email);
                                 break;
                             }
                         }
@@ -315,6 +321,14 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
                 break;
             }
         }
+    }
+
+    private void downloadImage(Uri uri) {
+        DownloadManager.Request request = new DownloadManager.Request(uri);
+        request.setNotificationVisibility(VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+
+        DownloadManager downloadManager = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+        downloadManager.enqueue(request);
     }
 
     private AttachmentViewInfo getAttachmentViewInfoIfCidUri(Uri uri) {
@@ -389,7 +403,8 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
         }
 
         if (textToDisplay == null) {
-            textToDisplay = HtmlConverter.wrapStatusMessage(getContext().getString(R.string.webview_empty_message));
+            String noTextMessage = getContext().getString(R.string.webview_empty_message);
+            textToDisplay = displayHtml.wrapStatusMessage(noTextMessage);
         }
 
         OnPageFinishedListener onPageFinishedListener = new OnPageFinishedListener() {
@@ -493,13 +508,6 @@ public class MessageContainerView extends LinearLayout implements OnLayoutChange
          * is now hidden.
          */
         clearDisplayedContent();
-    }
-
-    @Override
-    public void onLayoutChanged() {
-        if (mMessageContentView != null) {
-            mMessageContentView.invalidate();
-        }
     }
 
     public void enableAttachmentButtons(AttachmentViewInfo attachment) {

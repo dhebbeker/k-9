@@ -1,10 +1,12 @@
 package com.fsck.k9.mailstore
 
-import org.koin.dsl.module.applicationContext
+import org.koin.dsl.module
 
-val mailStoreModule = applicationContext {
-    bean { FolderRepositoryManager() }
-    bean { MessageViewInfoExtractor(get(), get(), get()) }
-    bean { StorageManager.getInstance(get()) }
-    bean { SearchStatusManager() }
+val mailStoreModule = module {
+    single { FolderRepositoryManager(get(), get()) }
+    single { MessageViewInfoExtractorFactory(get(), get(), get()) }
+    single { StorageManager.getInstance(get()) }
+    single { SearchStatusManager() }
+    single { SpecialFolderSelectionStrategy() }
+    single { K9BackendStorageFactory(get(), get(), get(), get()) }
 }

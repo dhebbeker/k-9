@@ -5,19 +5,20 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Date;
+import java.util.Objects;
 
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import com.fsck.k9.Account;
-import com.fsck.k9.core.BuildConfig;
+import com.fsck.k9.K9;
 import com.fsck.k9.controller.MessageReference;
 import com.fsck.k9.mail.Address;
 import com.fsck.k9.mail.Flag;
-import com.fsck.k9.mail.Folder;
 import com.fsck.k9.mail.MessagingException;
+import com.fsck.k9.mail.internet.AddressHeaderBuilder;
 import com.fsck.k9.mail.internet.MimeMessage;
 import com.fsck.k9.mail.message.MessageHeaderParser;
 import com.fsck.k9.mailstore.LockableDatabase.DbCallback;
@@ -40,13 +41,10 @@ public class LocalMessage extends MimeMessage {
     private String mimeType;
     private PreviewType previewType;
     private boolean headerNeedsUpdating = false;
+    private LocalFolder mFolder;
 
 
-    private LocalMessage(LocalStore localStore) {
-        this.localStore = localStore;
-    }
-
-    LocalMessage(LocalStore localStore, String uid, Folder folder) {
+    LocalMessage(LocalStore localStore, String uid, LocalFolder folder) {
         this.localStore = localStore;
         this.mUid = uid;
         this.mFolder = folder;
@@ -80,9 +78,10 @@ public class LocalMessage extends MimeMessage {
             }
         }
         this.databaseId = cursor.getLong(LocalStore.MSG_INDEX_ID);
-        this.setRecipients(RecipientType.TO, Address.unpack(cursor.getString(LocalStore.MSG_INDEX_TO)));
-        this.setRecipients(RecipientType.CC, Address.unpack(cursor.getString(LocalStore.MSG_INDEX_CC)));
-        this.setRecipients(RecipientType.BCC, Address.unpack(cursor.getString(LocalStore.MSG_INDEX_BCC)));
+        mTo = getAddressesOrNull(Address.unpack(cursor.getString(LocalStore.MSG_INDEX_TO)));
+        mCc = getAddressesOrNull(Address.unpack(cursor.getString(LocalStore.MSG_INDEX_CC)));
+        mBcc = getAddressesOrNull(Address.unpack(cursor.getString(LocalStore.MSG_INDEX_BCC)));
+        headerNeedsUpdating = true;
         this.setReplyTo(Address.unpack(cursor.getString(LocalStore.MSG_INDEX_REPLY_TO)));
 
         this.attachmentCount = cursor.getInt(LocalStore.MSG_INDEX_ATTACHMENT_COUNT);
@@ -100,7 +99,7 @@ public class LocalMessage extends MimeMessage {
 
         if (this.mFolder == null) {
             LocalFolder f = new LocalFolder(this.localStore, cursor.getInt(LocalStore.MSG_INDEX_FOLDER_ID));
-            f.open(LocalFolder.OPEN_MODE_RW);
+            f.open();
             this.mFolder = f;
         }
 
@@ -210,36 +209,12 @@ public class LocalMessage extends MimeMessage {
         headerNeedsUpdating = true;
     }
 
-
-    /*
-     * For performance reasons, we add headers instead of setting them (see super implementation)
-     * which removes (expensive) them before adding them
-     */
-    @Override
-    public void setRecipients(RecipientType type, Address[] addresses) {
-        if (type == RecipientType.TO) {
-            if (addresses == null || addresses.length == 0) {
-                this.mTo = null;
-            } else {
-                this.mTo = addresses;
-            }
-        } else if (type == RecipientType.CC) {
-            if (addresses == null || addresses.length == 0) {
-                this.mCc = null;
-            } else {
-                this.mCc = addresses;
-            }
-        } else if (type == RecipientType.BCC) {
-            if (addresses == null || addresses.length == 0) {
-                this.mBcc = null;
-            } else {
-                this.mBcc = addresses;
-            }
+    private Address[] getAddressesOrNull(Address[] addresses) {
+        if (addresses == null || addresses.length == 0) {
+            return null;
         } else {
-            throw new IllegalArgumentException("Unrecognized recipient type.");
+            return addresses;
         }
-
-        headerNeedsUpdating = true;
     }
 
     public void setFlagInternal(Flag flag, boolean set) throws MessagingException {
@@ -362,8 +337,8 @@ public class LocalMessage extends MimeMessage {
     }
 
     public void debugClearLocalData() throws MessagingException {
-        if (!BuildConfig.DEBUG) {
-            throw new AssertionError("method must only be used in debug build!");
+        if (!K9.DEVELOPER_MODE) {
+            throw new AssertionError("method must only be used in developer mode!");
         }
 
         try {
@@ -423,9 +398,8 @@ public class LocalMessage extends MimeMessage {
         return messageReference;
     }
 
-    @Override
     public LocalFolder getFolder() {
-        return (LocalFolder) super.getFolder();
+        return mFolder;
     }
 
     public String getUri() {
@@ -444,9 +418,10 @@ public class LocalMessage extends MimeMessage {
     private void updateHeader() {
         super.setSubject(subject);
         super.setReplyTo(mReplyTo);
-        super.setRecipients(RecipientType.TO, mTo);
-        super.setRecipients(RecipientType.CC, mCc);
-        super.setRecipients(RecipientType.BCC, mBcc);
+
+        setRecipients("To", mTo);
+        setRecipients("CC", mCc);
+        setRecipients("BCC", mBcc);
 
         if (mFrom != null && mFrom.length > 0) {
             super.setFrom(mFrom[0]);
@@ -459,6 +434,15 @@ public class LocalMessage extends MimeMessage {
         headerNeedsUpdating = false;
     }
 
+    private void setRecipients(String headerName, Address[] addresses) {
+        if (addresses == null || addresses.length == 0) {
+            removeHeader(headerName);
+        } else {
+            String headerValue = AddressHeaderBuilder.createHeaderValue(addresses);
+            setHeader(headerName, headerValue);
+        }
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -467,20 +451,22 @@ public class LocalMessage extends MimeMessage {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        if (!super.equals(o)) {
-            return false;
-        }
 
-        // distinguish by account uuid, in addition to what Message.equals() does above
-        String thisAccountUuid = getAccountUuid();
-        String thatAccountUuid = ((LocalMessage) o).getAccountUuid();
-        return thisAccountUuid != null ? thisAccountUuid.equals(thatAccountUuid) : thatAccountUuid == null;
+        LocalMessage other = (LocalMessage) o;
+        return Objects.equals(mUid, other.mUid) &&
+                Objects.equals(mFolder, other.mFolder) &&
+                Objects.equals(getAccountUuid(), other.getAccountUuid());
     }
 
     @Override
     public int hashCode() {
-        int result = super.hashCode();
-        result = 31 * result + (getAccountUuid() != null ? getAccountUuid().hashCode() : 0);
+        final int MULTIPLIER = 31;
+
+        int result = 1;
+        String accountUuid = getAccountUuid();
+        result = MULTIPLIER * result + (accountUuid != null ? accountUuid.hashCode() : 0);
+        result = MULTIPLIER * result + (mFolder != null ? mFolder.hashCode() : 0);
+        result = MULTIPLIER * result + mUid.hashCode();
         return result;
     }
 

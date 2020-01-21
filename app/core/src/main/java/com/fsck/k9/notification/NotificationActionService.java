@@ -180,7 +180,7 @@ public class NotificationActionService extends CoreService {
 
         String archiveFolderName = account.getArchiveFolder();
         if (archiveFolderName == null ||
-                (archiveFolderName.equals(account.getSpamFolder()) && K9.confirmSpam()) ||
+                (archiveFolderName.equals(account.getSpamFolder()) && K9.isConfirmSpam()) ||
                 !isMovePossible(controller, account, archiveFolderName)) {
             Timber.w("Can not archive messages");
             return;
@@ -207,7 +207,7 @@ public class NotificationActionService extends CoreService {
         }
 
         String spamFolderName = account.getSpamFolder();
-        if (spamFolderName != null && !K9.confirmSpam() && isMovePossible(controller, account, spamFolderName)) {
+        if (!K9.isConfirmSpam() && isMovePossible(controller, account, spamFolderName)) {
             String sourceFolderName = messageReference.getFolderServerId();
             controller.moveMessage(account, sourceFolderName, messageReference, spamFolderName);
         }
@@ -233,10 +233,8 @@ public class NotificationActionService extends CoreService {
         }
     }
 
-    private boolean isMovePossible(MessagingController controller, Account account,
-            String destinationFolderName) {
-        boolean isSpecialFolderConfigured = !K9.FOLDER_NONE.equals(destinationFolderName);
-
+    private boolean isMovePossible(MessagingController controller, Account account, String destinationFolderName) {
+        boolean isSpecialFolderConfigured = destinationFolderName != null;
         return isSpecialFolderConfigured && controller.isMoveCapable(account);
     }
 }

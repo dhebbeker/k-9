@@ -9,17 +9,14 @@ import android.preference.Preference
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
-
 import com.fsck.k9.Preferences
 import com.fsck.k9.R
 import com.fsck.k9.activity.ChooseAccount
-import com.fsck.k9.activity.ChooseFolder
 import com.fsck.k9.activity.K9PreferenceActivity
 import com.fsck.k9.search.SearchAccount
+import com.fsck.k9.ui.choosefolder.ChooseFolderActivity
 import org.koin.android.ext.android.inject
-
 import timber.log.Timber
-
 
 /**
  * Activity to select an account for the unread widget.
@@ -73,9 +70,11 @@ class UnreadWidgetConfigurationActivity : K9PreferenceActivity() {
 
         unreadFolder = findPreference(PREFERENCE_UNREAD_FOLDER)
         unreadFolder.onPreferenceClickListener = Preference.OnPreferenceClickListener {
-            val intent = Intent(this@UnreadWidgetConfigurationActivity, ChooseFolder::class.java)
-            intent.putExtra(ChooseFolder.EXTRA_ACCOUNT, selectedAccountUuid)
-            intent.putExtra(ChooseFolder.EXTRA_SHOW_DISPLAYABLE_ONLY, "yes")
+            val intent = ChooseFolderActivity.buildLaunchIntent(
+                context = this@UnreadWidgetConfigurationActivity,
+                accountUuid = selectedAccountUuid!!,
+                showDisplayableOnly = true
+            )
             startActivityForResult(intent, REQUEST_CHOOSE_FOLDER)
             false
         }
@@ -87,8 +86,8 @@ class UnreadWidgetConfigurationActivity : K9PreferenceActivity() {
             when (requestCode) {
                 REQUEST_CHOOSE_ACCOUNT -> handleChooseAccount(data.getStringExtra(ChooseAccount.EXTRA_ACCOUNT_UUID))
                 REQUEST_CHOOSE_FOLDER -> {
-                    val folderServerId = data.getStringExtra(ChooseFolder.EXTRA_NEW_FOLDER)
-                    val folderDisplayName = data.getStringExtra(ChooseFolder.RESULT_FOLDER_DISPLAY_NAME)
+                    val folderServerId = data.getStringExtra(ChooseFolderActivity.RESULT_SELECTED_FOLDER)
+                    val folderDisplayName = data.getStringExtra(ChooseFolderActivity.RESULT_FOLDER_DISPLAY_NAME)
                     handleChooseFolder(folderServerId, folderDisplayName)
                 }
             }
@@ -105,7 +104,7 @@ class UnreadWidgetConfigurationActivity : K9PreferenceActivity() {
         selectedAccountUuid = accountUuid
         selectedFolder = null
         unreadFolder.summary = getString(R.string.unread_widget_folder_summary)
-        if (SearchAccount.UNIFIED_INBOX == selectedAccountUuid || SearchAccount.ALL_MESSAGES == selectedAccountUuid) {
+        if (SearchAccount.UNIFIED_INBOX == selectedAccountUuid) {
             handleSearchAccount()
         } else {
             handleRegularAccount()
@@ -115,8 +114,6 @@ class UnreadWidgetConfigurationActivity : K9PreferenceActivity() {
     private fun handleSearchAccount() {
         if (SearchAccount.UNIFIED_INBOX == selectedAccountUuid) {
             unreadAccount.setSummary(R.string.unread_widget_unified_inbox_account_summary)
-        } else if (SearchAccount.ALL_MESSAGES == selectedAccountUuid) {
-            unreadAccount.setSummary(R.string.unread_widget_all_messages_account_summary)
         }
         unreadFolderEnabled.isEnabled = false
         unreadFolderEnabled.isChecked = false

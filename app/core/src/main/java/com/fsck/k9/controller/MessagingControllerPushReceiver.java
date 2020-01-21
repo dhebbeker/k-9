@@ -1,49 +1,51 @@
 package com.fsck.k9.controller;
 
-import android.content.Context;
-
-import com.fsck.k9.mail.power.WakeLock;
-import timber.log.Timber;
-
-import com.fsck.k9.Account;
-import com.fsck.k9.K9;
-import com.fsck.k9.mail.Folder;
-
-import com.fsck.k9.mail.Message;
-import com.fsck.k9.mail.PushReceiver;
-import com.fsck.k9.mailstore.LocalFolder;
-import com.fsck.k9.mailstore.LocalStore;
-import com.fsck.k9.service.SleepService;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+
+import android.content.Context;
+
+import com.fsck.k9.Account;
+import com.fsck.k9.K9;
+import com.fsck.k9.mail.Message;
+import com.fsck.k9.mail.PushReceiver;
+import com.fsck.k9.mail.power.WakeLock;
+import com.fsck.k9.mailstore.LocalFolder;
+import com.fsck.k9.mailstore.LocalStore;
+import com.fsck.k9.mailstore.LocalStoreProvider;
+import com.fsck.k9.service.SleepService;
+import timber.log.Timber;
 
 public class MessagingControllerPushReceiver implements PushReceiver {
     final Account account;
     final MessagingController controller;
     final Context context;
+    final LocalStoreProvider localStoreProvider;
 
-    public MessagingControllerPushReceiver(Context context, Account nAccount, MessagingController nController) {
+    public MessagingControllerPushReceiver(Context context, LocalStoreProvider localStoreProvider,
+            Account nAccount, MessagingController nController) {
         account = nAccount;
         controller = nController;
+        this.localStoreProvider = localStoreProvider;
         this.context = context;
     }
 
-    public void messagesFlagsChanged(Folder folder, List<Message> messages) {
-        syncFolder(folder);
+    public void messagesFlagsChanged(String folderServerId, List<Message> messages) {
+        syncFolder(folderServerId);
     }
-    public void messagesArrived(Folder folder, List<Message> messages) {
-        syncFolder(folder);
+    public void messagesArrived(String folderServerId, List<Message> messages) {
+        syncFolder(folderServerId);
     }
-    public void messagesRemoved(Folder folder, List<Message> messages) {
-        syncFolder(folder);
+    public void messagesRemoved(String folderServerId, List<Message> messages) {
+        syncFolder(folderServerId);
     }
 
-    public void syncFolder(Folder folder) {
-        Timber.v("syncFolder(%s)", folder.getServerId());
+    public void syncFolder(String folderServerId) {
+        Timber.v("syncFolder(%s)", folderServerId);
 
         final CountDownLatch latch = new CountDownLatch(1);
-        controller.synchronizeMailbox(account, folder.getServerId(), new SimpleMessagingListener() {
+        controller.synchronizeMailbox(account, folderServerId, new SimpleMessagingListener() {
             @Override
             public void synchronizeMailboxFinished(Account account, String folderServerId,
             int totalMessagesInMailbox, int numNewMessages) {
@@ -55,13 +57,13 @@ public class MessagingControllerPushReceiver implements PushReceiver {
             String message) {
                 latch.countDown();
             }
-        }, folder);
+        });
 
-        Timber.v("syncFolder(%s) about to await latch release", folder.getServerId());
+        Timber.v("syncFolder(%s) about to await latch release", folderServerId);
 
         try {
             latch.await();
-            Timber.v("syncFolder(%s) got latch release", folder.getServerId());
+            Timber.v("syncFolder(%s) got latch release", folderServerId);
         } catch (Exception e) {
             Timber.e(e, "Interrupted while awaiting latch release");
         }
@@ -90,9 +92,9 @@ public class MessagingControllerPushReceiver implements PushReceiver {
     public String getPushState(String folderServerId) {
         LocalFolder localFolder = null;
         try {
-            LocalStore localStore = account.getLocalStore();
+            LocalStore localStore = localStoreProvider.getInstance(account);
             localFolder = localStore.getFolder(folderServerId);
-            localFolder.open(Folder.OPEN_MODE_RW);
+            localFolder.open();
             return localFolder.getPushState();
         } catch (Exception e) {
             Timber.e(e, "Unable to get push state from account %s, folder %s", account.getDescription(), folderServerId);

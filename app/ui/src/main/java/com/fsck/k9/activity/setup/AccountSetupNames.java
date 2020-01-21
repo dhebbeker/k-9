@@ -16,8 +16,8 @@ import android.widget.EditText;
 
 import com.fsck.k9.Account;
 import com.fsck.k9.Preferences;
-import com.fsck.k9.activity.Accounts;
 import com.fsck.k9.activity.K9Activity;
+import com.fsck.k9.activity.MessageList;
 import com.fsck.k9.ui.R;
 import com.fsck.k9.helper.Utility;
 
@@ -41,7 +41,7 @@ public class AccountSetupNames extends K9Activity implements OnClickListener {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.account_setup_names);
+        setLayout(R.layout.account_setup_names);
         mDescription = findViewById(R.id.account_description);
         mName = findViewById(R.id.account_name);
         mDoneButton = findViewById(R.id.done);
@@ -89,8 +89,8 @@ public class AccountSetupNames extends K9Activity implements OnClickListener {
             mAccount.setDescription(mDescription.getText().toString());
         }
         mAccount.setName(mName.getText().toString());
-        mAccount.save(Preferences.getPreferences(this));
-        Accounts.listAccounts(this);
+        Preferences.getPreferences(getApplicationContext()).saveAccount(mAccount);
+        MessageList.launch(this);
         finish();
     }
 

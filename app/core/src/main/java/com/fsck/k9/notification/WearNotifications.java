@@ -5,9 +5,9 @@ import java.util.ArrayList;
 
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationCompat.Builder;
-import android.support.v4.app.NotificationCompat.WearableExtender;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationCompat.Builder;
+import androidx.core.app.NotificationCompat.WearableExtender;
 
 import com.fsck.k9.Account;
 import com.fsck.k9.K9;
@@ -227,21 +227,19 @@ class WearNotifications extends BaseNotifications {
     }
 
     private boolean isDeleteActionAvailableForWear() {
-        return isDeleteActionEnabled() && !K9.confirmDeleteFromNotification();
+        return isDeleteActionEnabled() && !K9.isConfirmDeleteFromNotification();
     }
 
     private boolean isArchiveActionAvailableForWear(Account account) {
-        String archiveFolderName = account.getArchiveFolder();
-        return archiveFolderName != null && isMovePossible(account, archiveFolderName);
+        return isMovePossible(account, account.getArchiveFolder());
     }
 
     private boolean isSpamActionAvailableForWear(Account account) {
-        String spamFolderName = account.getSpamFolder();
-        return spamFolderName != null && !K9.confirmSpam() && isMovePossible(account, spamFolderName);
+        return !K9.isConfirmSpam() && isMovePossible(account, account.getSpamFolder());
     }
 
     private boolean isMovePossible(Account account, String destinationFolderName) {
-        if (K9.FOLDER_NONE.equals(destinationFolderName)) {
+        if (destinationFolderName == null) {
             return false;
         }
 

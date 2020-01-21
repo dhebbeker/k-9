@@ -27,6 +27,7 @@ import android.widget.Toast;
 
 import com.fsck.k9.Account;
 import com.fsck.k9.DI;
+import com.fsck.k9.LocalKeyStoreManager;
 import com.fsck.k9.Preferences;
 import com.fsck.k9.backend.BackendManager;
 import com.fsck.k9.preferences.Protocols;
@@ -53,6 +54,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
 
 
     private final BackendManager backendManager = DI.get(BackendManager.class);
+    private final AccountCreator accountCreator = DI.get(AccountCreator.class);
 
     private EditText mUsernameView;
     private EditText mPasswordView;
@@ -101,7 +103,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.account_setup_outgoing);
+        setLayout(R.layout.account_setup_outgoing);
 
         String accountUuid = getIntent().getStringExtra(EXTRA_ACCOUNT);
         mAccount = Preferences.getPreferences(this).getAccount(accountUuid);
@@ -447,7 +449,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
         // Remove listener so as not to trigger validateFields() which is called
         // elsewhere as a result of user interaction.
         mPortView.removeTextChangedListener(validationTextWatcher);
-        mPortView.setText(String.valueOf(AccountCreator.getDefaultPort(securityType, Protocols.SMTP)));
+        mPortView.setText(String.valueOf(accountCreator.getDefaultPort(securityType, Protocols.SMTP)));
         mPortView.addTextChangedListener(validationTextWatcher);
     }
 
@@ -459,7 +461,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
             if (Intent.ACTION_EDIT.equals(getIntent().getAction())) {
-                mAccount.save(Preferences.getPreferences(this));
+                Preferences.getPreferences(getApplicationContext()).saveAccount(mAccount);
                 finish();
             } else {
                 AccountSetupOptions.actionOptions(this, mAccount, mMakeDefault);
@@ -490,7 +492,7 @@ public class AccountSetupOutgoing extends K9Activity implements OnClickListener,
         int newPort = Integer.parseInt(mPortView.getText().toString());
         ServerSettings server = new ServerSettings(Protocols.SMTP, newHost, newPort, securityType, authType, username, password, clientCertificateAlias);
         uri = backendManager.createTransportUri(server);
-        mAccount.deleteCertificate(newHost, newPort, MailServerDirection.OUTGOING);
+        DI.get(LocalKeyStoreManager.class).deleteCertificate(mAccount, newHost, newPort, MailServerDirection.OUTGOING);
         mAccount.setTransportUri(uri);
         AccountSetupCheckSettings.actionCheckSettings(this, mAccount, CheckDirection.OUTGOING);
     }

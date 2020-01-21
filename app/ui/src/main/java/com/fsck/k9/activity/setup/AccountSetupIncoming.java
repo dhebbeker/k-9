@@ -2,11 +2,6 @@
 package com.fsck.k9.activity.setup;
 
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.Map;
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -30,15 +25,15 @@ import android.widget.Toast;
 import com.fsck.k9.Account;
 import com.fsck.k9.Account.FolderMode;
 import com.fsck.k9.DI;
+import com.fsck.k9.LocalKeyStoreManager;
 import com.fsck.k9.Preferences;
-import com.fsck.k9.backend.BackendManager;
-import com.fsck.k9.preferences.Protocols;
-import com.fsck.k9.ui.R;
 import com.fsck.k9.account.AccountCreator;
 import com.fsck.k9.activity.K9Activity;
 import com.fsck.k9.activity.setup.AccountSetupCheckSettings.CheckDirection;
+import com.fsck.k9.backend.BackendManager;
 import com.fsck.k9.controller.MessagingController;
 import com.fsck.k9.helper.Utility;
+import com.fsck.k9.job.K9JobManager;
 import com.fsck.k9.mail.AuthType;
 import com.fsck.k9.mail.ConnectionSecurity;
 import com.fsck.k9.mail.MailServerDirection;
@@ -46,9 +41,16 @@ import com.fsck.k9.mail.NetworkType;
 import com.fsck.k9.mail.ServerSettings;
 import com.fsck.k9.mail.store.imap.ImapStoreSettings;
 import com.fsck.k9.mail.store.webdav.WebDavStoreSettings;
-import com.fsck.k9.service.MailService;
+import com.fsck.k9.preferences.Protocols;
+import com.fsck.k9.ui.R;
 import com.fsck.k9.view.ClientCertificateSpinner;
 import com.fsck.k9.view.ClientCertificateSpinner.OnClientCertificateChangedListener;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
+
 import timber.log.Timber;
 
 public class AccountSetupIncoming extends K9Activity implements OnClickListener {
@@ -59,6 +61,8 @@ public class AccountSetupIncoming extends K9Activity implements OnClickListener 
 
     private final MessagingController messagingController = DI.get(MessagingController.class);
     private final BackendManager backendManager = DI.get(BackendManager.class);
+    private final K9JobManager jobManager = DI.get(K9JobManager.class);
+    private final AccountCreator accountCreator = DI.get(AccountCreator.class);
 
     private String mStoreType;
     private EditText mUsernameView;
@@ -117,7 +121,7 @@ public class AccountSetupIncoming extends K9Activity implements OnClickListener 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.account_setup_incoming);
+        setLayout(R.layout.account_setup_incoming);
 
         mUsernameView = findViewById(R.id.account_username);
         mPasswordView = findViewById(R.id.account_password);
@@ -262,7 +266,7 @@ public class AccountSetupIncoming extends K9Activity implements OnClickListener 
             }
 
             if (!editSettings) {
-                mAccount.setDeletePolicy(AccountCreator.getDefaultDeletePolicy(settings.type));
+                mAccount.setDeletePolicy(accountCreator.getDefaultDeletePolicy(settings.type));
             }
 
             // Note that mConnectionSecurityChoices is configured above based on server type
@@ -304,7 +308,7 @@ public class AccountSetupIncoming extends K9Activity implements OnClickListener 
             }
             mCurrentPortViewSetting = mPortView.getText().toString();
 
-            mSubscribedFoldersOnly.setChecked(mAccount.subscribedFoldersOnly());
+            mSubscribedFoldersOnly.setChecked(mAccount.isSubscribedFoldersOnly());
         } catch (Exception e) {
             failure(e);
         }
@@ -499,7 +503,7 @@ public class AccountSetupIncoming extends K9Activity implements OnClickListener 
         // Remove listener so as not to trigger validateFields() which is called
         // elsewhere as a result of user interaction.
         mPortView.removeTextChangedListener(validationTextWatcher);
-        mPortView.setText(String.valueOf(AccountCreator.getDefaultPort(securityType, mStoreType)));
+        mPortView.setText(String.valueOf(accountCreator.getDefaultPort(securityType, mStoreType)));
         mPortView.addTextChangedListener(validationTextWatcher);
     }
 
@@ -513,9 +517,9 @@ public class AccountSetupIncoming extends K9Activity implements OnClickListener 
             if (Intent.ACTION_EDIT.equals(getIntent().getAction())) {
                 boolean isPushCapable = messagingController.isPushCapable(mAccount);
                 if (isPushCapable && mAccount.getFolderPushMode() != FolderMode.NONE) {
-                    MailService.actionRestartPushers(this, null);
+                    jobManager.schedulePusherRefresh();
                 }
-                mAccount.save(Preferences.getPreferences(this));
+                Preferences.getPreferences(getApplicationContext()).saveAccount(mAccount);
                 finish();
             } else {
                 /*
@@ -588,7 +592,7 @@ public class AccountSetupIncoming extends K9Activity implements OnClickListener 
                         mWebdavMailboxPathView.getText().toString());
             }
 
-            mAccount.deleteCertificate(host, port, MailServerDirection.INCOMING);
+            DI.get(LocalKeyStoreManager.class).deleteCertificate(mAccount, host, port, MailServerDirection.INCOMING);
             ServerSettings settings = new ServerSettings(mStoreType, host, port,
                     connectionSecurity, authType, username, password, clientCertificateAlias, extra);
 

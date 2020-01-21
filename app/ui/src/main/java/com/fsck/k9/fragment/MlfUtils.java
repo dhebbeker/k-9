@@ -7,14 +7,15 @@ import android.database.Cursor;
 import android.text.TextUtils;
 
 import com.fsck.k9.Account;
+import com.fsck.k9.DI;
 import com.fsck.k9.Preferences;
 import com.fsck.k9.controller.MessageReference;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.Address;
-import com.fsck.k9.mail.Folder;
 import com.fsck.k9.mail.MessagingException;
 import com.fsck.k9.mailstore.LocalFolder;
 import com.fsck.k9.mailstore.LocalStore;
+import com.fsck.k9.mailstore.LocalStoreProvider;
 
 import static com.fsck.k9.fragment.MLFProjectionInfo.SENDER_LIST_COLUMN;
 
@@ -22,9 +23,9 @@ import static com.fsck.k9.fragment.MLFProjectionInfo.SENDER_LIST_COLUMN;
 public class MlfUtils {
 
     static LocalFolder getOpenFolder(String folderServerId, Account account) throws MessagingException {
-        LocalStore localStore = account.getLocalStore();
+        LocalStore localStore = DI.get(LocalStoreProvider.class).getInstance(account);
         LocalFolder localFolder = localStore.getFolder(folderServerId);
-        localFolder.open(Folder.OPEN_MODE_RO);
+        localFolder.open();
         return localFolder;
     }
 
